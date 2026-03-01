@@ -1,0 +1,94 @@
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+
+	"lines/internal/extractor"
+	"lines/internal/parser"
+	"lines/internal/scanner"
+
+	"github.com/spf13/cobra"
+)
+
+var indexCmd = &cobra.Command{
+	Use:   "index",
+	Short: "Index the codebase into the graph database",
+	RunE:  runIndex,
+}
+
+func init() {
+	rootCmd.AddCommand(indexCmd)
+}
+
+func runIndex(cmd *cobra.Command, args []string) error {
+	root, err := resolveRoot()
+	if err != nil {
+		return err
+	}
+
+	store, err := openStore(root)
+	if err != nil {
+		return fmt.Errorf("open store: %w", err)
+	}
+	defer store.Close()
+
+	sc := scanner.NewScanner(root)
+	files, err := sc.ScanAll()
+	if err != nil {
+		return fmt.Errorf("scan files: %w", err)
+	}
+
+	p := parser.NewParser()
+	defer p.Close()
+
+	var totalElements, totalEdges int
+
+	for _, fi := range files {
+		logVerbose("Parsing %s", fi.RelPath)
+
+		result, err := p.ParseFile(fi.Path, fi.Language)
+		if err != nil {
+			logVerbose("Skip %s: %v", fi.RelPath, err)
+			continue
+		}
+		defer result.Tree.Close()
+
+		ext := extractor.ForLanguage(fi.Language)
+		if ext == nil {
+			continue
+		}
+
+		extracted, err := ext.Extract(result)
+		if err != nil {
+			logVerbose("Extract error %s: %v", fi.RelPath, err)
+			continue
+		}
+
+		for _, el := range extracted.Elements {
+			if err := store.UpsertElement(el); err != nil {
+				logVerbose("Upsert element error: %v", err)
+			}
+			totalElements++
+		}
+
+		for _, edge := range extracted.Edges {
+			if err := store.UpsertEdge(edge); err != nil {
+				logVerbose("Upsert edge error: %v", err)
+			}
+			totalEdges++
+		}
+	}
+
+	if scanner.IsGitRepo(root) {
+		commit, err := scanner.CurrentCommit(root)
+		if err == nil {
+			lastCommitPath := filepath.Join(root, ".treelines", "last_commit")
+			os.WriteFile(lastCommitPath, []byte(commit), 0o644)
+		}
+	}
+
+	logInfo("Indexed %d elements, %d edges from %d files", totalElements, totalEdges, len(files))
+	return nil
+}
