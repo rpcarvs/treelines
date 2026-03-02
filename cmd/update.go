@@ -24,6 +24,7 @@ func init() {
 	rootCmd.AddCommand(updateCmd)
 }
 
+// runUpdate re-indexes only files changed since the last indexed commit.
 func runUpdate(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {
@@ -63,8 +64,8 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	var reindexed int
 
 	for _, relPath := range changed {
-		ext := filepath.Ext(relPath)
-		lang := scanner.LangForExt(ext)
+		fileExt := filepath.Ext(relPath)
+		lang := scanner.LangForExt(fileExt)
 		if lang == "" {
 			continue
 		}
@@ -89,14 +90,14 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 			logVerbose("Skip %s: %v", relPath, err)
 			continue
 		}
-		defer result.Tree.Close()
-
-		ext2 := extractor.ForLanguage(lang)
-		if ext2 == nil {
+		ext := extractor.ForLanguage(lang)
+		if ext == nil {
+			result.Tree.Close()
 			continue
 		}
 
-		extracted, err := ext2.Extract(result)
+		extracted, err := ext.Extract(result)
+		result.Tree.Close()
 		if err != nil {
 			logVerbose("Extract error %s: %v", relPath, err)
 			continue

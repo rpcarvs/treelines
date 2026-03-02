@@ -17,6 +17,7 @@ func init() {
 	rootCmd.AddCommand(statsCmd)
 }
 
+// runStats prints element and edge count statistics.
 func runStats(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {

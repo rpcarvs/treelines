@@ -39,6 +39,7 @@ func init() {
 	rootCmd.AddCommand(queryCmd)
 }
 
+// runQuery executes a raw SQL query against the database.
 func runQuery(cmd *cobra.Command, args []string) error {
 	sql, err := resolveQuerySQL(args)
 	if err != nil {
@@ -69,6 +70,7 @@ func runQuery(cmd *cobra.Command, args []string) error {
 	return output(results)
 }
 
+// resolveQuerySQL reads SQL from args, a file, or stdin.
 func resolveQuerySQL(args []string) (string, error) {
 	if queryFile != "" {
 		var data []byte

@@ -27,6 +27,7 @@ func init() {
 	rootCmd.AddCommand(elementCmd)
 }
 
+// runElement looks up a code element by FQName, exact name, or substring.
 func runElement(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {

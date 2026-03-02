@@ -14,10 +14,12 @@ type SQLiteStore struct {
 	db *sql.DB
 }
 
+// NewSQLiteStore creates a new uninitialized SQLiteStore.
 func NewSQLiteStore() *SQLiteStore {
 	return &SQLiteStore{}
 }
 
+// Open opens a SQLite database at the given path.
 func (s *SQLiteStore) Open(path string) error {
 	db, err := sql.Open("sqlite", path+"?_busy_timeout=5000")
 	if err != nil {
@@ -27,6 +29,7 @@ func (s *SQLiteStore) Open(path string) error {
 	return nil
 }
 
+// Close closes the database connection.
 func (s *SQLiteStore) Close() error {
 	if s.db != nil {
 		return s.db.Close()
@@ -34,6 +37,7 @@ func (s *SQLiteStore) Close() error {
 	return nil
 }
 
+// CreateSchema creates the elements and edges tables if they don't exist.
 func (s *SQLiteStore) CreateSchema() error {
 	for _, stmt := range SchemaStatements() {
 		if _, err := s.db.Exec(stmt); err != nil {
@@ -43,6 +47,7 @@ func (s *SQLiteStore) CreateSchema() error {
 	return nil
 }
 
+// UpsertElement inserts or updates an element in the database.
 func (s *SQLiteStore) UpsertElement(el model.Element) error {
 	query := `INSERT INTO elements (id, language, kind, name, fq_name, path, start_line, end_line, loc, signature, visibility, docstring, body)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -61,6 +66,7 @@ func (s *SQLiteStore) UpsertElement(el model.Element) error {
 	return nil
 }
 
+// UpsertEdge inserts an edge or ignores it if it already exists.
 func (s *SQLiteStore) UpsertEdge(e model.Edge) error {
 	query := `INSERT INTO edges (from_id, to_id, type) VALUES (?, ?, ?)
 		ON CONFLICT(from_id, to_id, type) DO NOTHING`
@@ -71,6 +77,7 @@ func (s *SQLiteStore) UpsertEdge(e model.Edge) error {
 	return nil
 }
 
+// DeleteElement removes an element by ID.
 func (s *SQLiteStore) DeleteElement(id string) error {
 	_, err := s.db.Exec(`DELETE FROM elements WHERE id = ?`, id)
 	if err != nil {
@@ -79,6 +86,7 @@ func (s *SQLiteStore) DeleteElement(id string) error {
 	return nil
 }
 
+// DeleteEdgesForFile removes all edges referencing elements in a file.
 func (s *SQLiteStore) DeleteEdgesForFile(path string) error {
 	query := `DELETE FROM edges WHERE
 		from_id IN (SELECT id FROM elements WHERE path = ?) OR
@@ -99,6 +107,7 @@ func (s *SQLiteStore) DeleteElementsByFile(path string) error {
 	return nil
 }
 
+// GetElement retrieves an element by its fully qualified name.
 func (s *SQLiteStore) GetElement(fqName string) (*model.Element, error) {
 	row := s.db.QueryRow(`SELECT * FROM elements WHERE fq_name = ? LIMIT 1`, fqName)
 	el, err := scanElement(row)
@@ -111,16 +120,19 @@ func (s *SQLiteStore) GetElement(fqName string) (*model.Element, error) {
 	return &el, nil
 }
 
+// GetElementByExactName retrieves elements matching an exact short name.
 func (s *SQLiteStore) GetElementByExactName(name string) ([]model.Element, error) {
 	query := `SELECT * FROM elements WHERE name = ?`
 	return s.queryElements(query, name)
 }
 
+// GetElementsByName retrieves elements whose name contains a substring.
 func (s *SQLiteStore) GetElementsByName(name string) ([]model.Element, error) {
 	query := `SELECT * FROM elements WHERE name LIKE '%' || ? || '%'`
 	return s.queryElements(query, name)
 }
 
+// GetCallers returns elements that call the given element.
 func (s *SQLiteStore) GetCallers(fqName string) ([]model.Element, error) {
 	query := `SELECT DISTINCT e.* FROM elements e
 		JOIN edges ed ON ed.from_id = e.id
@@ -129,6 +141,7 @@ func (s *SQLiteStore) GetCallers(fqName string) ([]model.Element, error) {
 	return s.queryElements(query, model.EdgeCalls, fqName)
 }
 
+// GetCallees returns elements called by the given element.
 func (s *SQLiteStore) GetCallees(fqName string) ([]model.Element, error) {
 	query := `SELECT DISTINCT e.* FROM elements e
 		JOIN edges ed ON ed.to_id = e.id
@@ -136,7 +149,6 @@ func (s *SQLiteStore) GetCallees(fqName string) ([]model.Element, error) {
 		WHERE ed.type = ? AND src.fq_name = ?`
 	return s.queryElements(query, model.EdgeCalls, fqName)
 }
-
 
 // GetContained returns elements contained by the named parent element.
 func (s *SQLiteStore) GetContained(name string) ([]model.Element, error) {
@@ -147,15 +159,18 @@ func (s *SQLiteStore) GetContained(name string) ([]model.Element, error) {
 	return s.queryElements(query, name, name)
 }
 
+// Search searches for elements by name or FQName substring.
 func (s *SQLiteStore) Search(substring string) ([]model.Element, error) {
 	query := `SELECT * FROM elements WHERE name LIKE '%' || ? || '%' OR fq_name LIKE '%' || ? || '%'`
 	return s.queryElements(query, substring, substring)
 }
 
+// GetAllElements returns all elements in the database.
 func (s *SQLiteStore) GetAllElements() ([]model.Element, error) {
 	return s.queryElements(`SELECT * FROM elements`)
 }
 
+// DeleteEdgesByType removes all edges of a given type.
 func (s *SQLiteStore) DeleteEdgesByType(edgeType string) error {
 	_, err := s.db.Exec(`DELETE FROM edges WHERE type = ?`, edgeType)
 	if err != nil {
@@ -164,6 +179,7 @@ func (s *SQLiteStore) DeleteEdgesByType(edgeType string) error {
 	return nil
 }
 
+// RunSQL executes a raw SQL query and returns rows as maps.
 func (s *SQLiteStore) RunSQL(query string) ([]map[string]any, error) {
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -195,6 +211,7 @@ func (s *SQLiteStore) RunSQL(query string) ([]map[string]any, error) {
 	return results, rows.Err()
 }
 
+// queryElements executes a query and scans results into Element slices.
 func (s *SQLiteStore) queryElements(query string, args ...any) ([]model.Element, error) {
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -217,6 +234,7 @@ func (s *SQLiteStore) queryElements(query string, args ...any) ([]model.Element,
 	return elements, rows.Err()
 }
 
+// scanElement scans a single database row into an Element.
 func scanElement(row *sql.Row) (model.Element, error) {
 	var el model.Element
 	err := row.Scan(

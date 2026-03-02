@@ -20,6 +20,7 @@ func init() {
 	rootCmd.AddCommand(usesCmd)
 }
 
+// runUses lists callers of a given code element.
 func runUses(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {

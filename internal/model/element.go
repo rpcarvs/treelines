@@ -28,6 +28,7 @@ const (
 	VisPrivate = "private"
 )
 
+// Element represents a code construct such as a function, class, or struct.
 type Element struct {
 	ID         string `json:"id"`
 	Language   string `json:"language"`

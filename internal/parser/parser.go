@@ -7,6 +7,7 @@ import (
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
+// ParseResult holds the tree-sitter parse tree, source bytes, and file metadata.
 type ParseResult struct {
 	Tree     *tree_sitter.Tree
 	Source   []byte

@@ -20,6 +20,7 @@ func init() {
 	rootCmd.AddCommand(calleesCmd)
 }
 
+// runCallees lists functions and methods called by a given element.
 func runCallees(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {

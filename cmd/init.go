@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -18,6 +20,7 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 }
 
+// runInit creates the .treelines directory and initializes the database schema.
 func runInit(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {
@@ -39,6 +42,34 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("create schema: %w", err)
 	}
 
+	ensureGitignoreEntry(root)
+
 	logInfo("Initialized treelines in %s", tlDir)
 	return nil
+}
+
+// ensureGitignoreEntry appends .treelines/ to .gitignore if the file exists
+// and does not already contain the entry.
+func ensureGitignoreEntry(root string) {
+	gitignorePath := filepath.Join(root, ".gitignore")
+	f, err := os.Open(gitignorePath)
+	if err != nil {
+		return
+	}
+	defer func() { _ = f.Close() }()
+
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		if strings.TrimSpace(sc.Text()) == ".treelines/" {
+			return
+		}
+	}
+	_ = f.Close()
+
+	out, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer func() { _ = out.Close() }()
+	_, _ = out.WriteString(".treelines/\n")
 }

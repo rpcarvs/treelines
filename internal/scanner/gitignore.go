@@ -27,6 +27,7 @@ func NewMatcher(root string) *Matcher {
 	return m
 }
 
+// loadPatterns reads and parses .gitignore patterns from disk.
 func (m *Matcher) loadPatterns() {
 	path := filepath.Join(m.root, ".gitignore")
 	f, err := os.Open(path)
@@ -45,6 +46,7 @@ func (m *Matcher) loadPatterns() {
 	}
 }
 
+// parsePattern parses a single gitignore line into a pattern struct.
 func parsePattern(raw string) pattern {
 	p := pattern{raw: raw}
 
@@ -79,6 +81,7 @@ func (m *Matcher) IsIgnored(relPath string) bool {
 	return ignored
 }
 
+// isAlwaysIgnored returns true for paths that are always excluded (like .git).
 func isAlwaysIgnored(relPath string) bool {
 	parts := strings.Split(relPath, "/")
 	for _, part := range parts {

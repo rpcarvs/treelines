@@ -31,6 +31,7 @@ func init() {
 	rootCmd.AddCommand(listCmd)
 }
 
+// runList lists elements contained by a named parent element.
 func runList(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {

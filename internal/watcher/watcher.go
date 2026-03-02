@@ -75,6 +75,7 @@ func (w *Watcher) Close() error {
 	return err
 }
 
+// loop runs the event processing loop with debounced batching.
 func (w *Watcher) loop() {
 	defer close(w.done)
 	defer close(w.events)
@@ -116,6 +117,7 @@ func (w *Watcher) loop() {
 	}
 }
 
+// flush sends accumulated pending paths as a batch event.
 func (w *Watcher) flush(pending map[string]struct{}) {
 	batch := make([]string, 0, len(pending))
 	for p := range pending {
@@ -124,6 +126,7 @@ func (w *Watcher) flush(pending map[string]struct{}) {
 	w.events <- batch
 }
 
+// timerChan returns the timer channel or nil if no timer is active.
 func timerChan(t *time.Timer) <-chan time.Time {
 	if t == nil {
 		return nil
@@ -131,6 +134,7 @@ func timerChan(t *time.Timer) <-chan time.Time {
 	return t.C
 }
 
+// isSupportedFile checks if a file has a supported source extension.
 func isSupportedFile(path string) bool {
 	ext := filepath.Ext(path)
 	return supportedExts[ext]

@@ -156,6 +156,7 @@ func runQuery(queryStr []byte, tsLang *tree_sitter.Language, root *tree_sitter.N
 	return result, captureNames, nil
 }
 
+// copyMatch creates a deep copy of a tree-sitter QueryMatch.
 func copyMatch(m *tree_sitter.QueryMatch) *tree_sitter.QueryMatch {
 	captures := make([]tree_sitter.QueryCapture, len(m.Captures))
 	copy(captures, m.Captures)
@@ -295,10 +296,10 @@ type nodeKey struct {
 	endByte   uint
 }
 
+// makeNodeKey creates a nodeKey from a tree-sitter node's byte offsets.
 func makeNodeKey(node *tree_sitter.Node) nodeKey {
 	return nodeKey{
 		startByte: uint(node.StartByte()),
 		endByte:   uint(node.EndByte()),
 	}
 }
-

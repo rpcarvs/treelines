@@ -26,6 +26,7 @@ func init() {
 	rootCmd.AddCommand(searchCmd)
 }
 
+// runSearch searches for elements by name substring with optional kind filter.
 func runSearch(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {

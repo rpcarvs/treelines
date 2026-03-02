@@ -127,6 +127,7 @@ func mapElementsToNodes(
 	return result
 }
 
+// enclosingKindsForLang returns the tree-sitter node kinds that represent functions for a language.
 func enclosingKindsForLang(lang string) []string {
 	switch lang {
 	case model.LangGo:
@@ -140,6 +141,7 @@ func enclosingKindsForLang(lang string) []string {
 	}
 }
 
+// isEnclosingKind checks if a node kind is in the list of enclosing kinds.
 func isEnclosingKind(kind string, kinds []string) bool {
 	for _, k := range kinds {
 		if kind == k {

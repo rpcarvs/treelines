@@ -15,6 +15,7 @@ import (
 // GoExtractor extracts elements and edges from Go source files.
 type GoExtractor struct{}
 
+// Extract parses Go source and extracts elements and edges.
 func (e *GoExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, error) {
 	queryStr, err := loadQuery(model.LangGo)
 	if err != nil {
@@ -152,6 +153,7 @@ func (e *GoExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, er
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil
 }
 
+// goFunctionElement builds an Element for a Go function declaration.
 func goFunctionElement(
 	node *tree_sitter.Node,
 	name, pkgName string,
@@ -176,6 +178,7 @@ func goFunctionElement(
 	}
 }
 
+// goMethodElement builds an Element for a Go method declaration.
 func goMethodElement(
 	node *tree_sitter.Node,
 	name, pkgName string,
@@ -206,6 +209,7 @@ func goMethodElement(
 	}
 }
 
+// goReceiverType extracts the receiver type name from a method.
 func goReceiverType(receiverNode *tree_sitter.Node, source []byte) string {
 	if receiverNode == nil {
 		return ""
@@ -222,6 +226,7 @@ func goReceiverType(receiverNode *tree_sitter.Node, source []byte) string {
 	return typePart
 }
 
+// goTypeKind determines whether a type declaration is a struct or interface.
 func goTypeKind(node *tree_sitter.Node, source []byte) (string, string) {
 	text := nodeText(node, source)
 	if strings.Contains(text, "struct {") || strings.Contains(text, "struct{") {
@@ -233,6 +238,7 @@ func goTypeKind(node *tree_sitter.Node, source []byte) (string, string) {
 	return "", ""
 }
 
+// goVisibility returns visibility based on Go naming convention.
 func goVisibility(name string) string {
 	r, _ := utf8.DecodeRuneInString(name)
 	if unicode.IsUpper(r) {
@@ -241,7 +247,7 @@ func goVisibility(name string) string {
 	return model.VisPrivate
 }
 
-
+// goPackageName extracts the package name from the AST root.
 func goPackageName(root *tree_sitter.Node, source []byte) string {
 	for i := uint(0); i < root.ChildCount(); i++ {
 		child := root.Child(i)

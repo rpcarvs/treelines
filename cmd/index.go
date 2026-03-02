@@ -23,6 +23,7 @@ func init() {
 	rootCmd.AddCommand(indexCmd)
 }
 
+// runIndex parses all source files and stores elements and edges in the database.
 func runIndex(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {
@@ -54,14 +55,14 @@ func runIndex(cmd *cobra.Command, args []string) error {
 			logVerbose("Skip %s: %v", fi.RelPath, err)
 			continue
 		}
-		defer result.Tree.Close()
-
 		ext := extractor.ForLanguage(fi.Language)
 		if ext == nil {
+			result.Tree.Close()
 			continue
 		}
 
 		extracted, err := ext.Extract(result)
+		result.Tree.Close()
 		if err != nil {
 			logVerbose("Extract error %s: %v", fi.RelPath, err)
 			continue

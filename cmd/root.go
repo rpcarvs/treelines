@@ -22,6 +22,7 @@ var rootCmd = &cobra.Command{
 local SQLite database for queryable code intelligence.`,
 }
 
+// Execute runs the root cobra command and exits on error.
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {

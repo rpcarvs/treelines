@@ -39,6 +39,7 @@ func openStore(root string) (*graph.SQLiteStore, error) {
 	return store, nil
 }
 
+// output formats and prints data based on the current flag settings.
 func output(data any) error {
 	if flagNoBody {
 		stripBodies(data)
@@ -49,6 +50,7 @@ func output(data any) error {
 	return outputCompact(data)
 }
 
+// stripBodies removes body content from elements before output.
 func stripBodies(data any) {
 	switch v := data.(type) {
 	case *model.Element:
@@ -60,12 +62,14 @@ func stripBodies(data any) {
 	}
 }
 
+// outputJSON marshals data to JSON and writes it to stdout.
 func outputJSON(data any) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
 }
 
+// outputCompact prints data in a human-readable compact format.
 func outputCompact(data any) error {
 	switch v := data.(type) {
 	case *model.Element:
@@ -83,6 +87,7 @@ func outputCompact(data any) error {
 	}
 }
 
+// printElementDetail prints a single element with its full details.
 func printElementDetail(el *model.Element) error {
 	fmt.Printf("%s %s %s (%s)\n", el.Language, el.Kind, el.FQName, el.Visibility)
 	fmt.Printf("  %s:%d-%d (%d loc)\n", el.Path, el.StartLine, el.EndLine, el.LOC)
@@ -101,16 +106,18 @@ func printElementDetail(el *model.Element) error {
 	return nil
 }
 
+// printElementList prints elements as a tab-aligned table.
 func printElementList(elements []model.Element) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "KIND\tFQNAME\tPATH\tVIS\tLOC")
+	_, _ = fmt.Fprintln(w, "KIND\tFQNAME\tPATH\tVIS\tLOC")
 	for _, el := range elements {
-		fmt.Fprintf(w, "%s\t%s\t%s:%d\t%s\t%d\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s:%d\t%s\t%d\n",
 			el.Kind, el.FQName, el.Path, el.StartLine, el.Visibility, el.LOC)
 	}
 	return w.Flush()
 }
 
+// printTable prints generic map rows as a tab-aligned table.
 func printTable(rows []map[string]any) error {
 	if len(rows) == 0 {
 		return nil
@@ -121,23 +128,25 @@ func printTable(rows []map[string]any) error {
 	}
 	sort.Strings(cols)
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, strings.Join(cols, "\t"))
+	_, _ = fmt.Fprintln(w, strings.Join(cols, "\t"))
 	for _, row := range rows {
 		vals := make([]string, len(cols))
 		for i, col := range cols {
 			vals[i] = fmt.Sprintf("%v", row[col])
 		}
-		fmt.Fprintln(w, strings.Join(vals, "\t"))
+		_, _ = fmt.Fprintln(w, strings.Join(vals, "\t"))
 	}
 	return w.Flush()
 }
 
+// logVerbose prints a message to stderr when verbose mode is enabled.
 func logVerbose(format string, args ...any) {
 	if flagVerbose && !flagQuiet {
 		fmt.Fprintf(os.Stderr, format+"\n", args...)
 	}
 }
 
+// logInfo prints a message to stderr unless quiet mode is enabled.
 func logInfo(format string, args ...any) {
 	if !flagQuiet {
 		fmt.Fprintf(os.Stderr, format+"\n", args...)

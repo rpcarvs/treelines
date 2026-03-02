@@ -13,6 +13,7 @@ import (
 // RustExtractor extracts elements and edges from Rust source files.
 type RustExtractor struct{}
 
+// Extract parses Rust source and extracts elements and edges.
 func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, error) {
 	queryStr, err := loadQuery(model.LangRust)
 	if err != nil {
@@ -170,6 +171,7 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil
 }
 
+// rustFunctionElement builds an Element for a Rust function or method.
 func rustFunctionElement(
 	node *tree_sitter.Node,
 	name, modulePath string,
@@ -210,6 +212,7 @@ func rustFunctionElement(
 	}
 }
 
+// rustTypeElement builds an Element for a Rust struct, enum, or trait.
 func rustTypeElement(
 	node *tree_sitter.Node,
 	name, modulePath, kind string,
@@ -234,6 +237,7 @@ func rustTypeElement(
 	}
 }
 
+// rustImplElement builds an Element for a Rust impl block.
 func rustImplElement(
 	node *tree_sitter.Node,
 	name, modulePath string,
@@ -266,6 +270,7 @@ func rustImplElement(
 	}
 }
 
+// findRustParentImpl finds the containing impl block ID for a method.
 func findRustParentImpl(node *tree_sitter.Node, implElements map[string]model.Element) string {
 	parent := node.Parent()
 	if parent != nil && parent.Kind() == "declaration_list" {
@@ -281,6 +286,7 @@ func findRustParentImpl(node *tree_sitter.Node, implElements map[string]model.El
 	return ""
 }
 
+// rustVisibility returns visibility based on pub modifier presence.
 func rustVisibility(node *tree_sitter.Node) string {
 	for i := uint(0); i < node.ChildCount(); i++ {
 		child := node.Child(i)
@@ -291,7 +297,7 @@ func rustVisibility(node *tree_sitter.Node) string {
 	return model.VisPrivate
 }
 
-
+// rustModulePath derives a crate-relative module path from a file path.
 func rustModulePath(path string) string {
 	path = filepath.ToSlash(path)
 

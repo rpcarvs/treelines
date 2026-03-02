@@ -3,7 +3,6 @@ package extractor
 import (
 	"path/filepath"
 	"strings"
-	"unicode"
 
 	"lines/internal/model"
 	"lines/internal/parser"
@@ -14,6 +13,7 @@ import (
 // PythonExtractor extracts elements and edges from Python source files.
 type PythonExtractor struct{}
 
+// Extract parses Python source and extracts elements and edges.
 func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, error) {
 	queryStr, err := loadQuery(model.LangPython)
 	if err != nil {
@@ -122,6 +122,7 @@ func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil
 }
 
+// pythonFunctionElement builds an Element for a Python function or method.
 func pythonFunctionElement(
 	node *tree_sitter.Node,
 	name, moduleName string,
@@ -162,6 +163,7 @@ func pythonFunctionElement(
 	}
 }
 
+// pythonClassElement builds an Element for a Python class definition.
 func pythonClassElement(
 	node *tree_sitter.Node,
 	name, moduleName string,
@@ -186,6 +188,7 @@ func pythonClassElement(
 	}
 }
 
+// pythonExtractBases creates EXTENDS edges for class base classes.
 func pythonExtractBases(
 	basesNode *tree_sitter.Node,
 	result *parser.ParseResult,
@@ -211,6 +214,7 @@ func pythonExtractBases(
 	}
 }
 
+// findPythonParentClass finds the containing class ID for a method.
 func findPythonParentClass(node *tree_sitter.Node, classElements map[string]model.Element) string {
 	parent := node.Parent()
 	if parent != nil && parent.Kind() == "block" {
@@ -228,6 +232,7 @@ func findPythonParentClass(node *tree_sitter.Node, classElements map[string]mode
 	return ""
 }
 
+// pythonVisibility returns visibility based on underscore prefix convention.
 func pythonVisibility(name string) string {
 	if len(name) > 0 && name[0] == '_' {
 		return model.VisPrivate
@@ -235,7 +240,7 @@ func pythonVisibility(name string) string {
 	return model.VisPublic
 }
 
-
+// pythonModuleName derives a dotted module name from a file path.
 func pythonModuleName(path string) string {
 	name := filepath.ToSlash(path)
 	name = strings.TrimSuffix(name, ".py")
@@ -248,10 +253,5 @@ func pythonModuleName(path string) string {
 		}
 		filtered = append(filtered, p)
 	}
-	result := strings.Join(filtered, ".")
-	runes := []rune(result)
-	if len(runes) > 0 && !unicode.IsLetter(runes[0]) && runes[0] != '_' {
-		return result
-	}
-	return result
+	return strings.Join(filtered, ".")
 }

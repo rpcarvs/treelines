@@ -9,16 +9,11 @@ import (
 
 	"lines/internal/extractor"
 	"lines/internal/parser"
+	"lines/internal/scanner"
 	"lines/internal/watcher"
 
 	"github.com/spf13/cobra"
 )
-
-var extToLang = map[string]string{
-	".py": "python",
-	".go": "go",
-	".rs": "rust",
-}
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
@@ -30,6 +25,7 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 }
 
+// runServe watches for file changes and re-indexes automatically.
 func runServe(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {
@@ -64,7 +60,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 			}
 			for _, path := range batch {
 				relPath, _ := filepath.Rel(root, path)
-				lang := langFromPath(path)
+				lang := scanner.LangForExt(filepath.Ext(path))
 				if lang == "" {
 					continue
 				}
@@ -81,14 +77,14 @@ func runServe(cmd *cobra.Command, args []string) error {
 					logVerbose("Parse error %s: %v", relPath, err)
 					continue
 				}
-				defer result.Tree.Close()
-
 				ext := extractor.ForLanguage(lang)
 				if ext == nil {
+					result.Tree.Close()
 					continue
 				}
 
 				extracted, err := ext.Extract(result)
+				result.Tree.Close()
 				if err != nil {
 					logVerbose("Extract error %s: %v", relPath, err)
 					continue
@@ -113,8 +109,4 @@ func runServe(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 	}
-}
-
-func langFromPath(path string) string {
-	return extToLang[filepath.Ext(path)]
 }
