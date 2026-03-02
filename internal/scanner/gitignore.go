@@ -14,9 +14,7 @@ type Matcher struct {
 }
 
 type pattern struct {
-	raw      string
 	negation bool
-	dirOnly  bool
 	glob     string
 }
 
@@ -48,18 +46,14 @@ func (m *Matcher) loadPatterns() {
 
 // parsePattern parses a single gitignore line into a pattern struct.
 func parsePattern(raw string) pattern {
-	p := pattern{raw: raw}
+	p := pattern{}
 
 	if strings.HasPrefix(raw, "!") {
 		p.negation = true
 		raw = raw[1:]
 	}
 
-	if strings.HasSuffix(raw, "/") {
-		p.dirOnly = true
-		raw = strings.TrimSuffix(raw, "/")
-	}
-
+	raw = strings.TrimSuffix(raw, "/")
 	p.glob = raw
 	return p
 }

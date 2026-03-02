@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"lines/internal/extractor"
+	"lines/internal/model"
 	"lines/internal/parser"
 	"lines/internal/scanner"
 	"lines/internal/watcher"
@@ -58,6 +59,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 			if !ok {
 				return nil
 			}
+			var reindexed bool
 			for _, path := range batch {
 				relPath, _ := filepath.Rel(root, path)
 				lang := scanner.LangForExt(filepath.Ext(path))
@@ -101,7 +103,26 @@ func runServe(cmd *cobra.Command, args []string) error {
 					}
 				}
 
+				reindexed = true
 				logInfo("Re-indexed %s", relPath)
+			}
+			if reindexed {
+				logInfo("Resolving cross-package calls...")
+				allElements, err := store.GetAllElements()
+				if err != nil {
+					logVerbose("Get all elements for cross-ref: %v", err)
+					continue
+				}
+				if err := store.DeleteEdgesByType(model.EdgeCalls); err != nil {
+					logVerbose("Delete old CALLS edges: %v", err)
+				}
+				crossEdges := extractor.ResolveCrossPackageCalls(allElements, p, root)
+				for _, e := range crossEdges {
+					if err := store.UpsertEdge(e); err != nil {
+						logVerbose("Upsert cross-ref edge: %v", err)
+					}
+				}
+				logInfo("Resolved %d cross-package call edges", len(crossEdges))
 			}
 
 		case <-sigCh:

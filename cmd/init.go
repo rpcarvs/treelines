@@ -52,19 +52,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 // and does not already contain the entry.
 func ensureGitignoreEntry(root string) {
 	gitignorePath := filepath.Join(root, ".gitignore")
-	f, err := os.Open(gitignorePath)
+	data, err := os.ReadFile(gitignorePath)
 	if err != nil {
 		return
 	}
-	defer func() { _ = f.Close() }()
 
-	sc := bufio.NewScanner(f)
+	sc := bufio.NewScanner(strings.NewReader(string(data)))
 	for sc.Scan() {
 		if strings.TrimSpace(sc.Text()) == ".treelines/" {
 			return
 		}
 	}
-	_ = f.Close()
 
 	out, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {

@@ -18,7 +18,7 @@ var rootCmd = &cobra.Command{
 	Use:   "lines",
 	Short: "Code intelligence powered by Tree-sitter and graph queries",
 	Long: `Treelines parses codebases using Tree-sitter, extracts code elements
-(functions, classes, structs, traits, interfaces), and stores them in a
+(functions, methods, classes, structs, interfaces, traits, enums, impl blocks, modules), and stores them in a
 local SQLite database for queryable code intelligence.`,
 }
 
@@ -31,7 +31,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&flagDB, "db", "", "Database path (default: .treelines/db)")
+	rootCmd.PersistentFlags().StringVar(&flagDB, "db", "", "Database path (default: .treelines/codestore.db)")
 	rootCmd.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVar(&flagQuiet, "quiet", false, "Suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVar(&flagNoBody, "no-body", false, "Strip body field from output")

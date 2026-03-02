@@ -9,7 +9,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// SQLiteStore implements GraphStore using SQLite via modernc.org/sqlite.
+// SQLiteStore provides SQLite-backed storage for elements and edges.
 type SQLiteStore struct {
 	db *sql.DB
 }
@@ -73,15 +73,6 @@ func (s *SQLiteStore) UpsertEdge(e model.Edge) error {
 	_, err := s.db.Exec(query, e.From, e.To, e.Type)
 	if err != nil {
 		return fmt.Errorf("upsert edge: %w", err)
-	}
-	return nil
-}
-
-// DeleteElement removes an element by ID.
-func (s *SQLiteStore) DeleteElement(id string) error {
-	_, err := s.db.Exec(`DELETE FROM elements WHERE id = ?`, id)
-	if err != nil {
-		return fmt.Errorf("delete element: %w", err)
 	}
 	return nil
 }

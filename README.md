@@ -1,7 +1,7 @@
 # Treelines
 
 Code intelligence CLI powered by Tree-sitter. Parses codebases, extracts structural
-elements (functions, classes, structs, interfaces, traits), maps their relationships,
+elements (functions, methods, classes, structs, interfaces, traits, enums, impl blocks, modules), maps their relationships,
 and stores everything in a local SQLite graph for fast querying.
 
 Supports **Go**, **Python**, and **Rust**.
@@ -15,7 +15,7 @@ lines index
 ```
 
 This creates a `.treelines/` directory with a `codestore.db` SQLite database.
-Add `.treelines/` to your `.gitignore`.
+Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, create it first.
 
 ## Commands
 
@@ -26,7 +26,7 @@ Add `.treelines/` to your `.gitignore`.
 | `lines init` | Create `.treelines/` directory and database schema |
 | `lines index` | Full index of the codebase |
 | `lines update` | Incremental re-index of files changed since last indexed commit |
-| `lines serve` | Watch for file changes and re-index automatically |
+| `lines serve` | Watch for file changes, re-index automatically, and refresh cross-package CALLS edges |
 
 ### Querying Elements
 
@@ -156,7 +156,7 @@ commands don't cover. The database has two tables:
 | to_id | TEXT | Target element ID |
 | type | TEXT | Edge type |
 
-Edge types: `CALLS`, `CONTAINS`, `DEFINED_IN`, `IMPLEMENTS`, `EXTENDS`, `REFERENCES`
+Edge types: `CALLS`, `CONTAINS`, `DEFINED_IN`, `IMPLEMENTS`, `EXTENDS`
 
 ### SQL Examples
 
@@ -181,5 +181,5 @@ echo "SELECT e.fq_name, COUNT(*) as call_count FROM elements e JOIN edges ed ON 
 1. **Scanning** - Walks the project tree, respecting `.gitignore`
 2. **Parsing** - Tree-sitter parses each file into a syntax tree
 3. **Extraction** - Language-specific extractors pull elements and intra-file edges
-4. **Cross-reference** - A second pass resolves cross-package call edges
+4. **Cross-reference** - A second pass resolves cross-package CALLS edges (`index`, `update`, and `serve`)
 5. **Storage** - Everything goes into SQLite with indexes on name, FQName, and path

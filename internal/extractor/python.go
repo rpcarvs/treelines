@@ -68,7 +68,7 @@ func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult
 
 		switch kind {
 		case "function_definition":
-			elem := pythonFunctionElement(elementNode, name, moduleName, result, classElements)
+			elem := pythonFunctionElement(elementNode, name, moduleName, result)
 			elements = append(elements, elem)
 			elementsByNode[makeNodeKey(elementNode)] = elem.ID
 			edges = append(edges, model.Edge{
@@ -77,7 +77,7 @@ func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult
 				Type: model.EdgeDefinedIn,
 			})
 			if elem.Kind == model.KindMethod {
-				parentClass := findPythonParentClass(elementNode, classElements)
+				parentClass := findPythonParentClass(elementNode, classElements, result.Source)
 				if parentClass != "" {
 					edges = append(edges, model.Edge{
 						From: parentClass,
@@ -127,7 +127,6 @@ func pythonFunctionElement(
 	node *tree_sitter.Node,
 	name, moduleName string,
 	result *parser.ParseResult,
-	classElements map[string]model.Element,
 ) model.Element {
 	kind := model.KindFunction
 	fqName := moduleName + "." + name
@@ -215,14 +214,14 @@ func pythonExtractBases(
 }
 
 // findPythonParentClass finds the containing class ID for a method.
-func findPythonParentClass(node *tree_sitter.Node, classElements map[string]model.Element) string {
+func findPythonParentClass(node *tree_sitter.Node, classElements map[string]model.Element, source []byte) string {
 	parent := node.Parent()
 	if parent != nil && parent.Kind() == "block" {
 		grandparent := parent.Parent()
 		if grandparent != nil && grandparent.Kind() == "class_definition" {
 			classNameNode := grandparent.ChildByFieldName("name")
 			if classNameNode != nil {
-				className := classNameNode.Utf8Text(nil)
+				className := nodeText(classNameNode, source)
 				if elem, ok := classElements[className]; ok {
 					return elem.ID
 				}

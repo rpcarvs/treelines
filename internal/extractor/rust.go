@@ -1,6 +1,7 @@
 package extractor
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -68,7 +69,7 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 
 		switch kind {
 		case "function_item":
-			elem := rustFunctionElement(elementNode, name, modulePath, result, implElements)
+			elem := rustFunctionElement(elementNode, name, modulePath, result)
 			elements = append(elements, elem)
 			elementsByNode[makeNodeKey(elementNode)] = elem.ID
 			edges = append(edges, model.Edge{
@@ -176,7 +177,6 @@ func rustFunctionElement(
 	node *tree_sitter.Node,
 	name, modulePath string,
 	result *parser.ParseResult,
-	implElements map[string]model.Element,
 ) model.Element {
 	kind := model.KindFunction
 	fqName := modulePath + "::" + name
@@ -249,7 +249,9 @@ func rustImplElement(
 		traitName := nodeText(traitNode, result.Source)
 		fqName = modulePath + "::" + traitName + " for " + name
 	} else {
-		fqName = modulePath + "::" + name
+		// Inherent impl blocks can appear multiple times for the same type in one file.
+		// Include start line to keep each impl element ID unique and stable.
+		fqName = fmt.Sprintf("%s::%s#impl@L%d", modulePath, name, int(node.StartPosition().Row)+1)
 	}
 
 	id := model.MakeID(model.LangRust, result.Path, fqName)
