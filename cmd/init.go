@@ -33,7 +33,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	if err := store.CreateSchema(); err != nil {
 		return fmt.Errorf("create schema: %w", err)

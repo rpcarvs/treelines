@@ -26,7 +26,7 @@ func NewParser() *Parser {
 
 // ParseFile reads a file, configures the parser for the given language,
 // and returns the parsed tree along with the source bytes.
-func (p *Parser) ParseFile(path, lang string) (*ParseResult, error) {
+func (p *Parser) ParseFile(absPath, storePath, lang string) (*ParseResult, error) {
 	tsLang := GetLanguage(lang)
 	if tsLang == nil {
 		return nil, fmt.Errorf("unsupported language: %s", lang)
@@ -36,7 +36,7 @@ func (p *Parser) ParseFile(path, lang string) (*ParseResult, error) {
 		return nil, fmt.Errorf("set language: %w", err)
 	}
 
-	src, err := os.ReadFile(path)
+	src, err := os.ReadFile(absPath)
 	if err != nil {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
@@ -47,7 +47,7 @@ func (p *Parser) ParseFile(path, lang string) (*ParseResult, error) {
 		Tree:     tree,
 		Source:   src,
 		Language: lang,
-		Path:     path,
+		Path:     storePath,
 	}, nil
 }
 

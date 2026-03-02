@@ -11,12 +11,15 @@ type GraphStore interface {
 	UpsertEdge(e model.Edge) error
 	DeleteElement(id string) error
 	DeleteEdgesForFile(path string) error
+	DeleteElementsByFile(path string) error
 	GetElement(fqName string) (*model.Element, error)
+	GetElementByExactName(name string) ([]model.Element, error)
 	GetElementsByName(name string) ([]model.Element, error)
 	GetCallers(fqName string) ([]model.Element, error)
 	GetCallees(fqName string) ([]model.Element, error)
-	GetDeps(fqName string) ([]model.Element, error)
-	GetReverseDeps(fqName string) ([]model.Element, error)
+	GetContained(name string) ([]model.Element, error)
 	Search(substring string) ([]model.Element, error)
+	GetAllElements() ([]model.Element, error)
+	DeleteEdgesByType(edgeType string) error
 	RunSQL(query string) ([]map[string]any, error)
 }

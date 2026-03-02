@@ -47,9 +47,14 @@ func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult
 	elements = append(elements, moduleElem)
 
 	classElements := make(map[string]model.Element)
+	elementsByNode := make(map[nodeKey]string)
 
 	for _, m := range matches {
 		caps := captureMap(m, captureNames)
+
+		if _, hasImport := caps["import"]; hasImport {
+			continue
+		}
 
 		elementNode, hasElement := caps["element"]
 		nameNode, hasName := caps["name"]
@@ -65,6 +70,7 @@ func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult
 		case "function_definition":
 			elem := pythonFunctionElement(elementNode, name, moduleName, result, classElements)
 			elements = append(elements, elem)
+			elementsByNode[makeNodeKey(elementNode)] = elem.ID
 			edges = append(edges, model.Edge{
 				From: elem.ID,
 				To:   moduleID,
@@ -79,6 +85,12 @@ func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult
 						Type: model.EdgeContains,
 					})
 				}
+			} else {
+				edges = append(edges, model.Edge{
+					From: moduleID,
+					To:   elem.ID,
+					Type: model.EdgeContains,
+				})
 			}
 
 		case "class_definition":
@@ -90,12 +102,22 @@ func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult
 				To:   moduleID,
 				Type: model.EdgeDefinedIn,
 			})
+			edges = append(edges, model.Edge{
+				From: moduleID,
+				To:   elem.ID,
+				Type: model.EdgeContains,
+			})
 			basesNode := caps["bases"]
 			if basesNode != nil {
 				pythonExtractBases(basesNode, result, elem, moduleName, &edges)
 			}
 		}
 	}
+
+	resolver := NewResolver(elements)
+	pyEnclosingKinds := []string{"function_definition"}
+	callEdges := extractCallEdges(matches, captureNames, result.Source, pyEnclosingKinds, elementsByNode, resolver, resolver)
+	edges = append(edges, callEdges...)
 
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil
 }
@@ -136,6 +158,7 @@ func pythonFunctionElement(
 		Signature:  signatureLine(node, result.Source),
 		Visibility: pythonVisibility(name),
 		Docstring:  extractDocstring(node, result.Source, model.LangPython),
+		Body:       nodeText(node, result.Source),
 	}
 }
 
@@ -159,6 +182,7 @@ func pythonClassElement(
 		Signature:  signatureLine(node, result.Source),
 		Visibility: pythonVisibility(name),
 		Docstring:  extractDocstring(node, result.Source, model.LangPython),
+		Body:       nodeText(node, result.Source),
 	}
 }
 
@@ -210,6 +234,7 @@ func pythonVisibility(name string) string {
 	}
 	return model.VisPublic
 }
+
 
 func pythonModuleName(path string) string {
 	name := filepath.ToSlash(path)

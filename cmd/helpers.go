@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
+	"text/tabwriter"
 
 	"lines/internal/graph"
+	"lines/internal/model"
 )
 
 // resolveRoot returns the project root directory.
@@ -23,7 +27,7 @@ func dbPath(root string) string {
 	if flagDB != "" {
 		return flagDB
 	}
-	return filepath.Join(root, ".treelines", "db")
+	return filepath.Join(root, ".treelines", "codestore.db")
 }
 
 // openStore creates and opens a SQLiteStore at the resolved path.
@@ -35,12 +39,25 @@ func openStore(root string) (*graph.SQLiteStore, error) {
 	return store, nil
 }
 
-// output writes data in the configured format.
 func output(data any) error {
-	if flagFormat == "json" {
+	if flagNoBody {
+		stripBodies(data)
+	}
+	if flagJSON {
 		return outputJSON(data)
 	}
-	return outputText(data)
+	return outputCompact(data)
+}
+
+func stripBodies(data any) {
+	switch v := data.(type) {
+	case *model.Element:
+		v.Body = ""
+	case []model.Element:
+		for i := range v {
+			v[i].Body = ""
+		}
+	}
 }
 
 func outputJSON(data any) error {
@@ -49,22 +66,70 @@ func outputJSON(data any) error {
 	return enc.Encode(data)
 }
 
-func outputText(data any) error {
+func outputCompact(data any) error {
 	switch v := data.(type) {
-	case string:
-		fmt.Println(v)
-	case []any:
-		for _, item := range v {
-			fmt.Println(item)
-		}
+	case *model.Element:
+		return printElementDetail(v)
+	case model.Element:
+		return printElementDetail(&v)
+	case []model.Element:
+		return printElementList(v)
+	case []map[string]any:
+		return printTable(v)
+	case map[string]any:
+		return printTable([]map[string]any{v})
 	default:
-		b, err := json.MarshalIndent(v, "", "  ")
-		if err != nil {
-			return err
+		return outputJSON(data)
+	}
+}
+
+func printElementDetail(el *model.Element) error {
+	fmt.Printf("%s %s %s (%s)\n", el.Language, el.Kind, el.FQName, el.Visibility)
+	fmt.Printf("  %s:%d-%d (%d loc)\n", el.Path, el.StartLine, el.EndLine, el.LOC)
+	if el.Signature != "" {
+		fmt.Printf("  %s\n", el.Signature)
+	}
+	if el.Docstring != "" {
+		for _, line := range strings.Split(el.Docstring, "\n") {
+			fmt.Printf("  # %s\n", line)
 		}
-		fmt.Println(string(b))
+	}
+	if el.Body != "" {
+		fmt.Println()
+		fmt.Println(el.Body)
 	}
 	return nil
+}
+
+func printElementList(elements []model.Element) error {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "KIND\tFQNAME\tPATH\tVIS\tLOC")
+	for _, el := range elements {
+		fmt.Fprintf(w, "%s\t%s\t%s:%d\t%s\t%d\n",
+			el.Kind, el.FQName, el.Path, el.StartLine, el.Visibility, el.LOC)
+	}
+	return w.Flush()
+}
+
+func printTable(rows []map[string]any) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	var cols []string
+	for k := range rows[0] {
+		cols = append(cols, k)
+	}
+	sort.Strings(cols)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, strings.Join(cols, "\t"))
+	for _, row := range rows {
+		vals := make([]string, len(cols))
+		for i, col := range cols {
+			vals[i] = fmt.Sprintf("%v", row[col])
+		}
+		fmt.Fprintln(w, strings.Join(vals, "\t"))
+	}
+	return w.Flush()
 }
 
 func logVerbose(format string, args ...any) {

@@ -41,6 +41,7 @@ type Element struct {
 	Signature  string `json:"signature"`
 	Visibility string `json:"visibility"`
 	Docstring  string `json:"docstring"`
+	Body       string `json:"body"`
 }
 
 // MakeID generates a deterministic ID from language, path, and fully qualified name.

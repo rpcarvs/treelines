@@ -7,10 +7,11 @@ import (
 )
 
 var (
-	flagFormat  string
 	flagDB      string
 	flagVerbose bool
 	flagQuiet   bool
+	flagNoBody  bool
+	flagJSON    bool
 )
 
 var rootCmd = &cobra.Command{
@@ -18,7 +19,7 @@ var rootCmd = &cobra.Command{
 	Short: "Code intelligence powered by Tree-sitter and graph queries",
 	Long: `Treelines parses codebases using Tree-sitter, extracts code elements
 (functions, classes, structs, traits, interfaces), and stores them in a
-LadybugDB graph database for queryable code intelligence.`,
+local SQLite database for queryable code intelligence.`,
 }
 
 func Execute() {
@@ -29,8 +30,9 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&flagFormat, "format", "text", "Output format: text or json")
 	rootCmd.PersistentFlags().StringVar(&flagDB, "db", "", "Database path (default: .treelines/db)")
 	rootCmd.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVar(&flagQuiet, "quiet", false, "Suppress non-essential output")
+	rootCmd.PersistentFlags().BoolVar(&flagNoBody, "no-body", false, "Strip body field from output")
+	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "Output as JSON")
 }

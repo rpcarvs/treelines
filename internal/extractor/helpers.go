@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"lines/internal/model"
 	"lines/internal/parser"
 
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
@@ -184,3 +185,120 @@ func captureMap(m *tree_sitter.QueryMatch, names []string) map[string]*tree_sitt
 func getLanguage(lang string) *tree_sitter.Language {
 	return parser.GetLanguage(lang)
 }
+
+// findEnclosingElement walks up from a node to find the nearest ancestor
+// whose kind matches one of the given node types.
+func findEnclosingElement(node *tree_sitter.Node, kinds []string) *tree_sitter.Node {
+	current := node.Parent()
+	for current != nil {
+		k := current.Kind()
+		for _, want := range kinds {
+			if k == want {
+				return current
+			}
+		}
+		current = current.Parent()
+	}
+	return nil
+}
+
+// extractCallEdges builds CALLS edges from @call_name captures. It finds the
+// enclosing function for each call, resolves the target name, and produces
+// an edge when both caller and callee are known. For qualified calls like
+// pkg.Function() or module::func(), it extracts the qualifier from the
+// tree-sitter node and attempts FQName-based resolution.
+func extractCallEdges(
+	matches []*tree_sitter.QueryMatch,
+	captureNames []string,
+	source []byte,
+	enclosingKinds []string,
+	elementsByNode map[nodeKey]string,
+	localResolver *Resolver,
+	globalResolver *Resolver,
+) []model.Edge {
+	var edges []model.Edge
+	for _, m := range matches {
+		caps := captureMap(m, captureNames)
+		callNameNode, ok := caps["call_name"]
+		if !ok {
+			continue
+		}
+		calleeName := nodeText(callNameNode, source)
+
+		var targetID string
+		var found bool
+
+		qualifier := extractCallQualifier(callNameNode, source)
+		if qualifier != "" {
+			targetID, found = globalResolver.ResolveQualified(qualifier, calleeName)
+		} else {
+			targetID, found = localResolver.Resolve(calleeName)
+		}
+		if !found {
+			continue
+		}
+
+		enclosing := findEnclosingElement(callNameNode, enclosingKinds)
+		if enclosing == nil {
+			continue
+		}
+		key := makeNodeKey(enclosing)
+		callerID, ok := elementsByNode[key]
+		if !ok {
+			continue
+		}
+		if callerID == targetID {
+			continue
+		}
+		edges = append(edges, model.Edge{
+			From: callerID,
+			To:   targetID,
+			Type: model.EdgeCalls,
+		})
+	}
+	return edges
+}
+
+// extractCallQualifier extracts the object/package qualifier from a qualified
+// call expression. For example, from `pkg.Function()` it returns "pkg".
+// It handles attribute (Python), selector_expression (Go), and
+// field_expression (Rust) parent nodes.
+func extractCallQualifier(callNameNode *tree_sitter.Node, source []byte) string {
+	parent := callNameNode.Parent()
+	if parent == nil {
+		return ""
+	}
+	kind := parent.Kind()
+	switch kind {
+	case "attribute":
+		obj := parent.ChildByFieldName("object")
+		if obj != nil {
+			return nodeText(obj, source)
+		}
+	case "selector_expression":
+		operand := parent.ChildByFieldName("operand")
+		if operand != nil {
+			return nodeText(operand, source)
+		}
+	case "field_expression":
+		value := parent.ChildByFieldName("value")
+		if value != nil {
+			return nodeText(value, source)
+		}
+	}
+	return ""
+}
+
+// nodeKey identifies a tree-sitter node by its start/end byte offsets.
+type nodeKey struct {
+	startByte uint
+	endByte   uint
+}
+
+func makeNodeKey(node *tree_sitter.Node) nodeKey {
+	return nodeKey{
+		startByte: uint(node.StartByte()),
+		endByte:   uint(node.EndByte()),
+	}
+}
+

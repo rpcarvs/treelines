@@ -1,6 +1,7 @@
 package extractor
 
 import (
+	"path/filepath"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -31,25 +32,31 @@ func (e *GoExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, er
 	var elements []model.Element
 	var edges []model.Edge
 
-	moduleID := model.MakeID(model.LangGo, result.Path, pkgName)
+	dir := filepath.Dir(result.Path)
+	moduleID := model.MakeID(model.LangGo, dir, pkgName)
 	moduleElem := model.Element{
 		ID:         moduleID,
 		Language:   model.LangGo,
 		Kind:       model.KindModule,
 		Name:       pkgName,
 		FQName:     pkgName,
-		Path:       result.Path,
-		StartLine:  1,
-		EndLine:    int(root.EndPosition().Row) + 1,
-		LOC:        lineCount(root),
+		Path:       dir,
+		StartLine:  0,
+		EndLine:    0,
+		LOC:        0,
 		Visibility: model.VisPublic,
 	}
 	elements = append(elements, moduleElem)
 
 	structElements := make(map[string]model.Element)
+	elementsByNode := make(map[nodeKey]string)
 
 	for _, m := range matches {
 		caps := captureMap(m, captureNames)
+
+		if _, hasImport := caps["import"]; hasImport {
+			continue
+		}
 
 		elementNode, hasElement := caps["element"]
 		nameNode, hasName := caps["name"]
@@ -65,16 +72,23 @@ func (e *GoExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, er
 		case "function_declaration":
 			elem := goFunctionElement(elementNode, name, pkgName, result)
 			elements = append(elements, elem)
+			elementsByNode[makeNodeKey(elementNode)] = elem.ID
 			edges = append(edges, model.Edge{
 				From: elem.ID,
 				To:   moduleID,
 				Type: model.EdgeDefinedIn,
+			})
+			edges = append(edges, model.Edge{
+				From: moduleID,
+				To:   elem.ID,
+				Type: model.EdgeContains,
 			})
 
 		case "method_declaration":
 			receiverNode := caps["receiver"]
 			elem := goMethodElement(elementNode, name, pkgName, receiverNode, result)
 			elements = append(elements, elem)
+			elementsByNode[makeNodeKey(elementNode)] = elem.ID
 			edges = append(edges, model.Edge{
 				From: elem.ID,
 				To:   moduleID,
@@ -111,6 +125,7 @@ func (e *GoExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, er
 				Signature:  signatureLine(elementNode, result.Source),
 				Visibility: goVisibility(name),
 				Docstring:  extractDocstring(elementNode, result.Source, model.LangGo),
+				Body:       nodeText(elementNode, result.Source),
 			}
 			elements = append(elements, elem)
 			edges = append(edges, model.Edge{
@@ -118,11 +133,21 @@ func (e *GoExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, er
 				To:   moduleID,
 				Type: model.EdgeDefinedIn,
 			})
+			edges = append(edges, model.Edge{
+				From: moduleID,
+				To:   elem.ID,
+				Type: model.EdgeContains,
+			})
 			if typeSpecKind == model.KindStruct {
 				structElements[name] = elem
 			}
 		}
 	}
+
+	resolver := NewResolver(elements)
+	goEnclosingKinds := []string{"function_declaration", "method_declaration"}
+	callEdges := extractCallEdges(matches, captureNames, result.Source, goEnclosingKinds, elementsByNode, resolver, resolver)
+	edges = append(edges, callEdges...)
 
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil
 }
@@ -147,6 +172,7 @@ func goFunctionElement(
 		Signature:  signatureLine(node, result.Source),
 		Visibility: goVisibility(name),
 		Docstring:  extractDocstring(node, result.Source, model.LangGo),
+		Body:       nodeText(node, result.Source),
 	}
 }
 
@@ -176,6 +202,7 @@ func goMethodElement(
 		Signature:  signatureLine(node, result.Source),
 		Visibility: goVisibility(name),
 		Docstring:  extractDocstring(node, result.Source, model.LangGo),
+		Body:       nodeText(node, result.Source),
 	}
 }
 
@@ -214,13 +241,16 @@ func goVisibility(name string) string {
 	return model.VisPrivate
 }
 
+
 func goPackageName(root *tree_sitter.Node, source []byte) string {
 	for i := uint(0); i < root.ChildCount(); i++ {
 		child := root.Child(i)
 		if child != nil && child.Kind() == "package_clause" {
-			nameNode := child.ChildByFieldName("name")
-			if nameNode != nil {
-				return nodeText(nameNode, source)
+			for j := uint(0); j < child.ChildCount(); j++ {
+				sub := child.Child(j)
+				if sub != nil && sub.Kind() == "package_identifier" {
+					return nodeText(sub, source)
+				}
 			}
 		}
 	}

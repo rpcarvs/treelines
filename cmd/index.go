@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"lines/internal/extractor"
+	"lines/internal/model"
 	"lines/internal/parser"
 	"lines/internal/scanner"
 
@@ -32,7 +33,7 @@ func runIndex(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	sc := scanner.NewScanner(root)
 	files, err := sc.ScanAll()
@@ -48,7 +49,7 @@ func runIndex(cmd *cobra.Command, args []string) error {
 	for _, fi := range files {
 		logVerbose("Parsing %s", fi.RelPath)
 
-		result, err := p.ParseFile(fi.Path, fi.Language)
+		result, err := p.ParseFile(fi.Path, fi.RelPath, fi.Language)
 		if err != nil {
 			logVerbose("Skip %s: %v", fi.RelPath, err)
 			continue
@@ -81,11 +82,28 @@ func runIndex(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	logInfo("Resolving cross-package calls...")
+	allElements, err := store.GetAllElements()
+	if err != nil {
+		logVerbose("Get all elements for cross-ref: %v", err)
+	} else {
+		if err := store.DeleteEdgesByType(model.EdgeCalls); err != nil {
+			logVerbose("Delete old CALLS edges: %v", err)
+		}
+		crossEdges := extractor.ResolveCrossPackageCalls(allElements, p, root)
+		for _, e := range crossEdges {
+			if err := store.UpsertEdge(e); err != nil {
+				logVerbose("Upsert cross-ref edge: %v", err)
+			}
+		}
+		logInfo("Resolved %d cross-package call edges", len(crossEdges))
+	}
+
 	if scanner.IsGitRepo(root) {
 		commit, err := scanner.CurrentCommit(root)
 		if err == nil {
 			lastCommitPath := filepath.Join(root, ".treelines", "last_commit")
-			os.WriteFile(lastCommitPath, []byte(commit), 0o644)
+			_ = os.WriteFile(lastCommitPath, []byte(commit), 0o644)
 		}
 	}
 

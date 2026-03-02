@@ -14,6 +14,11 @@ var extToLang = map[string]string{
 	".rs": model.LangRust,
 }
 
+// LangForExt returns the language for a file extension, or empty string if unsupported.
+func LangForExt(ext string) string {
+	return extToLang[ext]
+}
+
 // FileInfo holds metadata about a discovered source file.
 type FileInfo struct {
 	Path     string

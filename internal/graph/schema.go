@@ -3,6 +3,7 @@ package graph
 // SchemaStatements returns SQL DDL statements for the elements and edges tables.
 func SchemaStatements() []string {
 	return []string{
+		`PRAGMA journal_mode=WAL`,
 		`CREATE TABLE IF NOT EXISTS elements (
 			id TEXT PRIMARY KEY,
 			language TEXT NOT NULL,
@@ -15,7 +16,8 @@ func SchemaStatements() []string {
 			loc INTEGER NOT NULL,
 			signature TEXT NOT NULL DEFAULT '',
 			visibility TEXT NOT NULL DEFAULT '',
-			docstring TEXT NOT NULL DEFAULT ''
+			docstring TEXT NOT NULL DEFAULT '',
+			body TEXT NOT NULL DEFAULT ''
 		)`,
 		`CREATE TABLE IF NOT EXISTS edges (
 			from_id TEXT NOT NULL,

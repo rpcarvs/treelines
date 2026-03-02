@@ -46,9 +46,14 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 	elements = append(elements, moduleElem)
 
 	implElements := make(map[string]model.Element)
+	elementsByNode := make(map[nodeKey]string)
 
 	for _, m := range matches {
 		caps := captureMap(m, captureNames)
+
+		if _, hasImport := caps["import"]; hasImport {
+			continue
+		}
 
 		elementNode, hasElement := caps["element"]
 		nameNode, hasName := caps["name"]
@@ -64,6 +69,7 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 		case "function_item":
 			elem := rustFunctionElement(elementNode, name, modulePath, result, implElements)
 			elements = append(elements, elem)
+			elementsByNode[makeNodeKey(elementNode)] = elem.ID
 			edges = append(edges, model.Edge{
 				From: elem.ID,
 				To:   moduleID,
@@ -78,6 +84,12 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 						Type: model.EdgeContains,
 					})
 				}
+			} else {
+				edges = append(edges, model.Edge{
+					From: moduleID,
+					To:   elem.ID,
+					Type: model.EdgeContains,
+				})
 			}
 
 		case "struct_item":
@@ -88,6 +100,11 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 				To:   moduleID,
 				Type: model.EdgeDefinedIn,
 			})
+			edges = append(edges, model.Edge{
+				From: moduleID,
+				To:   elem.ID,
+				Type: model.EdgeContains,
+			})
 
 		case "enum_item":
 			elem := rustTypeElement(elementNode, name, modulePath, model.KindEnum, result)
@@ -97,6 +114,11 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 				To:   moduleID,
 				Type: model.EdgeDefinedIn,
 			})
+			edges = append(edges, model.Edge{
+				From: moduleID,
+				To:   elem.ID,
+				Type: model.EdgeContains,
+			})
 
 		case "trait_item":
 			elem := rustTypeElement(elementNode, name, modulePath, model.KindTrait, result)
@@ -105,6 +127,11 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 				From: elem.ID,
 				To:   moduleID,
 				Type: model.EdgeDefinedIn,
+			})
+			edges = append(edges, model.Edge{
+				From: moduleID,
+				To:   elem.ID,
+				Type: model.EdgeContains,
 			})
 
 		case "impl_item":
@@ -116,6 +143,11 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 				From: elem.ID,
 				To:   moduleID,
 				Type: model.EdgeDefinedIn,
+			})
+			edges = append(edges, model.Edge{
+				From: moduleID,
+				To:   elem.ID,
+				Type: model.EdgeContains,
 			})
 			if traitNode != nil {
 				traitName := nodeText(traitNode, result.Source)
@@ -129,6 +161,11 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 			}
 		}
 	}
+
+	resolver := NewResolver(elements)
+	rustEnclosingKinds := []string{"function_item"}
+	callEdges := extractCallEdges(matches, captureNames, result.Source, rustEnclosingKinds, elementsByNode, resolver, resolver)
+	edges = append(edges, callEdges...)
 
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil
 }
@@ -169,6 +206,7 @@ func rustFunctionElement(
 		Signature:  signatureLine(node, result.Source),
 		Visibility: rustVisibility(node),
 		Docstring:  extractDocstring(node, result.Source, model.LangRust),
+		Body:       nodeText(node, result.Source),
 	}
 }
 
@@ -192,6 +230,7 @@ func rustTypeElement(
 		Signature:  signatureLine(node, result.Source),
 		Visibility: rustVisibility(node),
 		Docstring:  extractDocstring(node, result.Source, model.LangRust),
+		Body:       nodeText(node, result.Source),
 	}
 }
 
@@ -223,6 +262,7 @@ func rustImplElement(
 		Signature:  signatureLine(node, result.Source),
 		Visibility: rustVisibility(node),
 		Docstring:  extractDocstring(node, result.Source, model.LangRust),
+		Body:       nodeText(node, result.Source),
 	}
 }
 
@@ -250,6 +290,7 @@ func rustVisibility(node *tree_sitter.Node) string {
 	}
 	return model.VisPrivate
 }
+
 
 func rustModulePath(path string) string {
 	path = filepath.ToSlash(path)
