@@ -146,8 +146,9 @@ func (e *GoExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, er
 	}
 
 	resolver := NewResolver(elements)
+	elementsByID := buildElementsByID(elements)
 	goEnclosingKinds := []string{"function_declaration", "method_declaration"}
-	callEdges := extractCallEdges(matches, captureNames, result.Source, goEnclosingKinds, elementsByNode, resolver, resolver)
+	callEdges := extractCallEdges(matches, captureNames, result.Source, goEnclosingKinds, elementsByNode, elementsByID, resolver, resolver)
 	edges = append(edges, callEdges...)
 
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil

@@ -115,8 +115,9 @@ func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult
 	}
 
 	resolver := NewResolver(elements)
+	elementsByID := buildElementsByID(elements)
 	pyEnclosingKinds := []string{"function_definition"}
-	callEdges := extractCallEdges(matches, captureNames, result.Source, pyEnclosingKinds, elementsByNode, resolver, resolver)
+	callEdges := extractCallEdges(matches, captureNames, result.Source, pyEnclosingKinds, elementsByNode, elementsByID, resolver, resolver)
 	edges = append(edges, callEdges...)
 
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil

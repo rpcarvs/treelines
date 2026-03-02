@@ -2,6 +2,7 @@ package extractor
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"lines/internal/model"
@@ -214,28 +215,16 @@ func extractCallEdges(
 	source []byte,
 	enclosingKinds []string,
 	elementsByNode map[nodeKey]string,
+	elementsByID map[string]model.Element,
 	localResolver *Resolver,
 	globalResolver *Resolver,
 ) []model.Edge {
 	var edges []model.Edge
+	hintsByEnclosing := make(map[nodeKey]map[string]string)
 	for _, m := range matches {
 		caps := captureMap(m, captureNames)
 		callNameNode, ok := caps["call_name"]
 		if !ok {
-			continue
-		}
-		calleeName := nodeText(callNameNode, source)
-
-		var targetID string
-		var found bool
-
-		qualifier := extractCallQualifier(callNameNode, source)
-		if qualifier != "" {
-			targetID, found = globalResolver.ResolveQualified(qualifier, calleeName)
-		} else {
-			targetID, found = localResolver.Resolve(calleeName)
-		}
-		if !found {
 			continue
 		}
 
@@ -248,6 +237,32 @@ func extractCallEdges(
 		if !ok {
 			continue
 		}
+
+		calleeName := nodeText(callNameNode, source)
+		callerElem, hasCaller := elementsByID[callerID]
+
+		var targetID string
+		var found bool
+		qualifier := extractCallQualifier(callNameNode, source)
+		if qualifier != "" {
+			targetID, found = globalResolver.ResolveQualified(qualifier, calleeName)
+			if !found && hasCaller {
+				hints, ok := hintsByEnclosing[key]
+				if !ok {
+					hints = qualifierHintsForCall(enclosing, source, callerElem)
+					hintsByEnclosing[key] = hints
+				}
+				if mappedQualifier, ok := hints[qualifier]; ok && mappedQualifier != "" {
+					targetID, found = globalResolver.ResolveQualified(mappedQualifier, calleeName)
+				}
+			}
+		} else {
+			targetID, found = localResolver.Resolve(calleeName)
+		}
+		if !found {
+			continue
+		}
+
 		if callerID == targetID {
 			continue
 		}
@@ -258,6 +273,93 @@ func extractCallEdges(
 		})
 	}
 	return edges
+}
+
+var (
+	goShortVarTypeRe = regexp.MustCompile(`\b([A-Za-z_]\w*)\s*:=\s*&?([A-Za-z_]\w*)\s*\{`)
+	goVarDeclTypeRe  = regexp.MustCompile(`\bvar\s+([A-Za-z_]\w*)\s+\*?([A-Za-z_]\w*)\b`)
+	goNewTypeCallRe  = regexp.MustCompile(`\b([A-Za-z_]\w*)\s*:=\s*(?:([A-Za-z_]\w*)\.)?New([A-Za-z_]\w*)\s*\(`)
+)
+
+// qualifierHintsForCall builds deterministic qualifier substitutions for receiver/self
+// and simple local variable type hints within the enclosing function/method.
+func qualifierHintsForCall(enclosing *tree_sitter.Node, source []byte, caller model.Element) map[string]string {
+	hints := make(map[string]string)
+
+	switch caller.Language {
+	case model.LangGo:
+		if caller.Kind == model.KindMethod {
+			if idx := strings.LastIndex(caller.FQName, "."); idx > 0 {
+				receiverQual := caller.FQName[:idx]
+				if receiver := enclosing.ChildByFieldName("receiver"); receiver != nil {
+					text := nodeText(receiver, source)
+					text = strings.TrimPrefix(text, "(")
+					text = strings.TrimSuffix(text, ")")
+					parts := strings.Fields(text)
+					if len(parts) >= 2 {
+						hints[parts[0]] = receiverQual
+					}
+				}
+			}
+		}
+		pkg := goPackageFromFQName(caller.FQName)
+		if pkg == "" {
+			return hints
+		}
+		text := nodeText(enclosing, source)
+		for _, m := range goShortVarTypeRe.FindAllStringSubmatch(text, -1) {
+			if len(m) == 3 {
+				hints[m[1]] = pkg + "." + m[2]
+			}
+		}
+		for _, m := range goVarDeclTypeRe.FindAllStringSubmatch(text, -1) {
+			if len(m) == 3 {
+				hints[m[1]] = pkg + "." + m[2]
+			}
+		}
+	for _, m := range goNewTypeCallRe.FindAllStringSubmatch(text, -1) {
+		if len(m) == 4 {
+			typePkg := pkg
+			if m[2] != "" {
+				typePkg = m[2]
+			}
+			hints[m[1]] = typePkg + "." + m[3]
+		}
+	}
+
+	case model.LangPython:
+		if caller.Kind == model.KindMethod {
+			if idx := strings.LastIndex(caller.FQName, "."); idx > 0 {
+				hints["self"] = caller.FQName[:idx]
+			}
+		}
+
+	case model.LangRust:
+		if caller.Kind == model.KindMethod {
+			if idx := strings.LastIndex(caller.FQName, "::"); idx > 0 {
+				hints["self"] = caller.FQName[:idx]
+			}
+		}
+	}
+
+	return hints
+}
+
+// goPackageFromFQName returns the package segment from a Go element FQName.
+func goPackageFromFQName(fq string) string {
+	if idx := strings.Index(fq, "."); idx > 0 {
+		return fq[:idx]
+	}
+	return ""
+}
+
+// buildElementsByID creates a lookup map from element ID to element metadata.
+func buildElementsByID(elements []model.Element) map[string]model.Element {
+	byID := make(map[string]model.Element, len(elements))
+	for _, el := range elements {
+		byID[el.ID] = el
+	}
+	return byID
 }
 
 // extractCallQualifier extracts the object/package qualifier from a qualified

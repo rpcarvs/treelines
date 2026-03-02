@@ -73,8 +73,9 @@ func ResolveCrossPackageCalls(allElements []model.Element, p *parser.Parser, roo
 			localElements = pkgElements[dir]
 		}
 		localResolver := NewResolver(localElements)
+		elementsByID := buildElementsByID(fg.elements)
 
-		callEdges := extractCallEdges(matches, captureNames, result.Source, enclosingKinds, elementsByNode, localResolver, globalResolver)
+		callEdges := extractCallEdges(matches, captureNames, result.Source, enclosingKinds, elementsByNode, elementsByID, localResolver, globalResolver)
 		for _, e := range callEdges {
 			key := e.From + "|" + e.To
 			if !seen[key] {

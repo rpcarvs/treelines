@@ -42,6 +42,10 @@ func runIndex(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("scan files: %w", err)
 	}
 
+	if err := store.Reset(); err != nil {
+		return fmt.Errorf("reset store for full index: %w", err)
+	}
+
 	p := parser.NewParser()
 	defer p.Close()
 

@@ -165,8 +165,9 @@ func (e *RustExtractor) Extract(result *parser.ParseResult) (*ExtractionResult, 
 	}
 
 	resolver := NewResolver(elements)
+	elementsByID := buildElementsByID(elements)
 	rustEnclosingKinds := []string{"function_item"}
-	callEdges := extractCallEdges(matches, captureNames, result.Source, rustEnclosingKinds, elementsByNode, resolver, resolver)
+	callEdges := extractCallEdges(matches, captureNames, result.Source, rustEnclosingKinds, elementsByNode, elementsByID, resolver, resolver)
 	edges = append(edges, callEdges...)
 
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil

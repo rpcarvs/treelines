@@ -47,6 +47,27 @@ func (s *SQLiteStore) CreateSchema() error {
 	return nil
 }
 
+// Reset clears all graph data so a full index can rebuild an authoritative snapshot.
+func (s *SQLiteStore) Reset() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin reset transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.Exec(`DELETE FROM edges`); err != nil {
+		return fmt.Errorf("delete edges: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM elements`); err != nil {
+		return fmt.Errorf("delete elements: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit reset transaction: %w", err)
+	}
+	return nil
+}
+
 // UpsertElement inserts or updates an element in the database.
 func (s *SQLiteStore) UpsertElement(el model.Element) error {
 	query := `INSERT INTO elements (id, language, kind, name, fq_name, path, start_line, end_line, loc, signature, visibility, docstring, body)
