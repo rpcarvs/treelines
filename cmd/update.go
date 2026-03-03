@@ -16,20 +16,29 @@ import (
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Incrementally re-index files changed since last commit",
-	RunE:  runUpdate,
+	Short: "Incrementally re-index files changed since the last indexed git commit",
+	Long: `Re-index files changed between .treelines/last_commit and git HEAD.
+
+This is commit-marker based and does not track unstaged or uncommitted edits.
+Run "lines index" first to create the initial indexed git commit marker snapshot.`,
+	RunE: runUpdate,
 }
 
 func init() {
 	rootCmd.AddCommand(updateCmd)
 }
 
-// runUpdate re-indexes only files changed since the last indexed commit.
+// runUpdate re-indexes only files changed since the last indexed git commit.
 func runUpdate(cmd *cobra.Command, args []string) error {
 	root, err := resolveRoot()
 	if err != nil {
 		return err
 	}
+	releaseWriterLock, err := acquireWriterLock(root, "update")
+	if err != nil {
+		return fmt.Errorf("acquire writer lock: %w", err)
+	}
+	defer releaseWriterLock()
 
 	if !scanner.IsGitRepo(root) {
 		return fmt.Errorf("not a git repository; use 'lines index' for a full index")

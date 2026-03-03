@@ -25,7 +25,7 @@ Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, crea
 |---------|-------------|
 | `lines init` | Create `.treelines/` directory and database schema |
 | `lines index` | Full index of the codebase |
-| `lines update` | Incremental re-index of files changed since last indexed commit |
+| `lines update` | Incremental re-index of files changed since the last indexed git commit |
 | `lines serve` | Watch for file changes, re-index automatically, and refresh cross-file CALLS/IMPORTS/EXPORTS edges |
 
 ### Querying Elements

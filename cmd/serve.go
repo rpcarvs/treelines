@@ -32,6 +32,11 @@ func runServe(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	releaseWriterLock, err := acquireWriterLock(root, "serve")
+	if err != nil {
+		return fmt.Errorf("acquire writer lock: %w", err)
+	}
+	defer releaseWriterLock()
 
 	store, err := openStore(root)
 	if err != nil {
