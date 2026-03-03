@@ -13,7 +13,11 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize treelines in the current directory",
-	RunE:  runInit,
+	Long: `Create .treelines/ and initialize the SQLite schema.
+
+This command is idempotent. It does not wipe existing indexed data.
+If .gitignore exists, .treelines/ is appended when missing.`,
+	RunE: runInit,
 }
 
 func init() {

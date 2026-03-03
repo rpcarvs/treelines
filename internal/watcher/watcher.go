@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"lines/internal/scanner"
+
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -22,6 +24,8 @@ type Watcher struct {
 	events   chan []string
 	done     chan struct{}
 	debounce time.Duration
+	root     string
+	matcher  *scanner.Matcher
 }
 
 // New creates a Watcher that recursively watches directories under root,
@@ -31,10 +35,21 @@ func New(root string) (*Watcher, error) {
 	if err != nil {
 		return nil, err
 	}
+	matcher := scanner.NewMatcher(root)
 
 	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+		relPath, relErr := filepath.Rel(root, path)
+		if relErr != nil {
+			return relErr
+		}
+		if matcher.IsIgnored(relPath) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
 		if d.IsDir() {
 			name := d.Name()
@@ -58,6 +73,8 @@ func New(root string) (*Watcher, error) {
 		events:   make(chan []string, 16),
 		done:     make(chan struct{}),
 		debounce: 500 * time.Millisecond,
+		root:     root,
+		matcher:  matcher,
 	}
 	go w.loop()
 	return w, nil
@@ -92,6 +109,9 @@ func (w *Watcher) loop() {
 				}
 				return
 			}
+			if w.isIgnored(ev.Name) {
+				continue
+			}
 			if !isSupportedFile(ev.Name) {
 				continue
 			}
@@ -115,6 +135,14 @@ func (w *Watcher) loop() {
 			}
 		}
 	}
+}
+
+func (w *Watcher) isIgnored(path string) bool {
+	relPath, err := filepath.Rel(w.root, path)
+	if err != nil {
+		return false
+	}
+	return w.matcher.IsIgnored(relPath)
 }
 
 // flush sends accumulated pending paths as a batch event.

@@ -158,6 +158,12 @@ func (s *SQLiteStore) GetElementsByName(name string) ([]model.Element, error) {
 	return s.queryElements(query, name)
 }
 
+// GetModulesByPrefix retrieves module elements whose fq_name starts with prefix.
+func (s *SQLiteStore) GetModulesByPrefix(prefix string) ([]model.Element, error) {
+	query := `SELECT * FROM elements WHERE kind = ? AND fq_name LIKE ? ORDER BY fq_name`
+	return s.queryElements(query, model.KindModule, prefix+".%")
+}
+
 // GetCallers returns elements that call the given element.
 func (s *SQLiteStore) GetCallers(fqName string) ([]model.Element, error) {
 	query := `SELECT DISTINCT e.* FROM elements e
@@ -191,6 +197,14 @@ func (s *SQLiteStore) GetContained(name string) ([]model.Element, error) {
 		JOIN elements parent ON ed.from_id = parent.id
 		WHERE ed.type = 'CONTAINS' AND (parent.fq_name = ? OR parent.name LIKE '%' || ? || '%')`
 	return s.queryElements(query, name, name)
+}
+
+// GetDefinedIn returns elements defined in the given module element ID.
+func (s *SQLiteStore) GetDefinedIn(moduleID string) ([]model.Element, error) {
+	query := `SELECT DISTINCT e.* FROM elements e
+		JOIN edges ed ON ed.from_id = e.id
+		WHERE ed.type = ? AND ed.to_id = ?`
+	return s.queryElements(query, model.EdgeDefinedIn, moduleID)
 }
 
 // Search searches for elements by name or FQName substring.

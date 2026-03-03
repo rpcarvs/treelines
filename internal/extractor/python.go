@@ -118,7 +118,7 @@ func (e *PythonExtractor) Extract(result *parser.ParseResult) (*ExtractionResult
 	elementsByID := buildElementsByID(elements)
 	pyEnclosingKinds := []string{"function_definition"}
 	importMaps := extractPythonImportMaps(matches, captureNames, result.Source, moduleName)
-	callEdges := extractCallEdges(matches, captureNames, result.Source, pyEnclosingKinds, elementsByNode, elementsByID, resolver, resolver, importMaps)
+	callEdges := extractCallEdges(matches, captureNames, result.Source, pyEnclosingKinds, elementsByNode, elementsByID, resolver, resolver, callImportMapsFromPython(importMaps))
 	edges = append(edges, callEdges...)
 
 	return &ExtractionResult{Elements: elements, Edges: edges}, nil

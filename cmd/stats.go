@@ -10,8 +10,12 @@ import (
 var statsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "Show element and edge counts from the database",
-	Args:  cobra.NoArgs,
-	RunE:  runStats,
+	Long: `Show a compact snapshot of indexed elements and edges.
+
+Includes totals by kind, language, and edge type.
+Also reports language-sum consistency against total elements.`,
+	Args: cobra.NoArgs,
+	RunE: runStats,
 }
 
 func init() {

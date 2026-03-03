@@ -19,7 +19,11 @@ import (
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Watch for file changes and re-index automatically",
-	RunE:  runServe,
+	Long: `Watch source files and incrementally re-index on changes.
+
+serve is filesystem-event based and not git-dependent.
+Run "lines index" first to build an initial complete snapshot.`,
+	RunE: runServe,
 }
 
 func init() {

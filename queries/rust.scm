@@ -39,3 +39,9 @@
     field: (field_identifier) @call_name
   )
 ) @call
+
+(call_expression
+  function: (scoped_identifier
+    name: (identifier) @call_name
+  )
+) @call

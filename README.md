@@ -16,6 +16,34 @@ lines index
 
 This creates a `.treelines/` directory with a `codestore.db` SQLite database.
 Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, create it first.
+`lines init` is idempotent and does not wipe existing indexed data.
+
+## Install Skills
+
+`lines` ships built-in installer commands for the `lines-codebase-exploration` skill:
+
+```bash
+lines install codex-skill
+lines install claude-skill
+```
+
+Use `--force` to overwrite an existing install:
+
+```bash
+lines install codex-skill --force
+lines install claude-skill --force
+```
+
+## Agent Workflow (No serve)
+
+Recommended deterministic workflow for agents that do not auto-commit:
+
+1. `lines init`
+2. `lines index` before coding starts
+3. Use `lines` commands first for discovery and relationships
+4. Run `lines index` again when a fresh snapshot is needed after edits
+
+In this workflow, skip `lines update`.
 
 ## Commands
 
@@ -23,10 +51,12 @@ Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, crea
 
 | Command | Description |
 |---------|-------------|
-| `lines init` | Create `.treelines/` directory and database schema |
-| `lines index` | Full index of the codebase |
-| `lines update` | Incremental re-index of files changed since the last indexed git commit |
-| `lines serve` | Watch for file changes, re-index automatically, and refresh cross-file CALLS/IMPORTS/EXPORTS edges |
+| `lines init` | Create `.treelines/` directory and database schema (idempotent) |
+| `lines index` | Full index snapshot of the codebase (replaces previous DB snapshot) |
+| `lines install codex-skill` | Install the bundled Codex skill |
+| `lines install claude-skill` | Install the bundled Claude skill |
+| `lines update` | Incremental re-index of files changed between `.treelines/last_commit` and git `HEAD` |
+| `lines serve` | Watch for file changes and incrementally re-index (filesystem-event based, not git-dependent) |
 
 ### Querying Elements
 
@@ -34,9 +64,10 @@ Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, crea
 |---------|-------------|
 | `lines element <name>` | Look up an element by FQName, exact name, or substring |
 | `lines search <substring>` | Search symbols by name or FQName substring |
-| `lines list <name>` | List elements contained by a named element (package, struct, etc) |
+| `lines list <name\|.\|*>` | List elements contained by a named element; use `.` or `*` for repo-wide scope |
 | `lines stats` | Show element and edge counts |
-| `lines exports [module]` | Authoritative Python `__all__` export surface query |
+| `lines imports [module]` | Internal import dependency surface query |
+| `lines exports [module]` | Module-local export surface (Python `__all__`, Go/Rust public symbols; non-recursive) |
 
 ### Querying Relationships
 
@@ -44,6 +75,8 @@ Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, crea
 |---------|-------------|
 | `lines uses <fq_name>` | Who calls this function? |
 | `lines callees <fq_name>` | What does this function call? |
+| `lines imports [module]` | What does this module import? |
+| `lines module-graph [module]` | Module summary, or repo overview without args |
 
 ### Advanced
 
@@ -52,10 +85,46 @@ Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, crea
 | `lines query <sql>` | Run raw SQL against the database |
 | `lines query --file <path>` | Read SQL from a file |
 | `lines query --file -` | Read SQL from stdin |
+| `lines query --schema` | Show schema and sample queries |
 
 Guidance:
 - Use `search` for symbol lookup.
-- Use `exports` for Python package surface (`__all__`).
+- Use `exports` for language-aware export surface.
+- `update` is commit-marker based and does not include unstaged or uncommitted edits.
+- Use `lines --help` and `lines <command> --help` when in doubt.
+
+## Command Reference (Short Examples)
+
+```bash
+# Setup and indexing
+lines init
+lines index
+lines serve
+lines update
+
+# Discovery
+lines stats
+lines search "Scanner"
+lines element "graph.SQLiteStore.Open"
+lines list "cmd" --kind function
+lines list . --kind module
+
+# Relationships
+lines callees "cmd.runIndex"
+lines uses "graph.SQLiteStore.Open"
+lines imports "cmd"
+lines module-graph "cmd"
+lines module-graph
+
+# Export surface
+lines exports
+lines exports "crate::ml"
+lines exports "__init__" --source
+
+# SQL access
+lines query --schema
+lines query "SELECT kind, COUNT(*) AS c FROM elements GROUP BY kind ORDER BY c DESC"
+```
 
 ## Global Flags
 
@@ -129,10 +198,13 @@ lines search "Path" --kind function
 # Get element metadata without the full body
 lines element "graph.SQLiteStore" --no-body
 
-# List Python modules with static __all__ exports
+# List modules/packages with exports
 lines exports
 
-# Show exported symbols for a module and include __all__ location
+# Show exports for Rust/Go/Python module/package
+# Note: Rust/Go exports are module-local and non-recursive.
+lines exports "crate::ml"
+lines exports "graph"
 lines exports "__init__" --source
 ```
 
@@ -193,6 +265,6 @@ echo "SELECT e.fq_name, COUNT(*) as call_count FROM elements e JOIN edges ed ON 
 2. **Parsing** - Tree-sitter parses each file into a syntax tree
 3. **Extraction** - Language-specific extractors pull elements and intra-file edges
 4. **Cross-reference** - A second pass resolves cross-file edges (`index`, `update`, and `serve`):
-   `CALLS` for Go/Python/Rust, `IMPORTS` for internal Python imports, and
+   `CALLS` for Go/Python/Rust, `IMPORTS` for internal Go/Python/Rust imports, and
    `EXPORTS` for static Python `__all__` assignments
 5. **Storage** - Everything goes into SQLite with indexes on name, FQName, and path

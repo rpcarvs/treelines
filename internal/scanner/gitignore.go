@@ -15,6 +15,7 @@ type Matcher struct {
 
 type pattern struct {
 	negation bool
+	anchored bool
 	glob     string
 }
 
@@ -53,6 +54,11 @@ func parsePattern(raw string) pattern {
 		raw = raw[1:]
 	}
 
+	if strings.HasPrefix(raw, "/") {
+		p.anchored = true
+		raw = strings.TrimPrefix(raw, "/")
+	}
+
 	raw = strings.TrimSuffix(raw, "/")
 	p.glob = raw
 	return p
@@ -87,11 +93,19 @@ func isAlwaysIgnored(relPath string) bool {
 }
 
 func (p *pattern) matches(relPath string) bool {
+	if p.glob == "" {
+		return false
+	}
+
+	if p.anchored {
+		return matchPath(p.glob, relPath)
+	}
+
 	segments := strings.Split(relPath, "/")
 
 	for i := range segments {
 		candidate := strings.Join(segments[i:], "/")
-		if matchGlob(p.glob, candidate) {
+		if matchPath(p.glob, candidate) {
 			return true
 		}
 		if matchGlob(p.glob, segments[i]) {
@@ -100,6 +114,17 @@ func (p *pattern) matches(relPath string) bool {
 	}
 
 	return false
+}
+
+// matchPath matches either a file path glob or a directory subtree path.
+func matchPath(pattern, relPath string) bool {
+	if matchGlob(pattern, relPath) {
+		return true
+	}
+	if strings.ContainsAny(pattern, "*?[") {
+		return false
+	}
+	return relPath == pattern || strings.HasPrefix(relPath, pattern+"/")
 }
 
 // matchGlob performs a simple glob match supporting * wildcards.

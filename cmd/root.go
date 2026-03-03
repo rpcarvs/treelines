@@ -22,7 +22,8 @@ var rootCmd = &cobra.Command{
 local SQLite database for queryable code intelligence.
 
 Use symbol commands (element/search/list/uses/callees) for structural graph work.
-Use exports for Python __all__ package surface.`,
+Use imports for internal module dependency surface.
+Use exports for language-aware module export surface.`,
 }
 
 // Execute runs the root cobra command and exits on error.

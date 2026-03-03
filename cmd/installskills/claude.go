@@ -1,0 +1,31 @@
+package installskills
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"lines/internal/skillinstaller"
+)
+
+// newClaudeSkillCommand installs the bundled Claude skill package.
+func newClaudeSkillCommand() *cobra.Command {
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "claude-skill",
+		Short: "Install the lines-codebase-exploration skill for Claude",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			installedPath, err := skillinstaller.InstallClaudeSkill(force)
+			if err != nil {
+				return err
+			}
+			_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Installed Claude skill:")
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", installedPath)
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing installed skill")
+	return cmd
+}

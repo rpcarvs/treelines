@@ -16,7 +16,11 @@ import (
 var indexCmd = &cobra.Command{
 	Use:   "index",
 	Short: "Index the codebase into the graph database",
-	RunE:  runIndex,
+	Long: `Run a full re-index of supported source files (Go, Python, Rust).
+
+This replaces the current database snapshot so removed code is removed from the DB.
+In git repos, it also refreshes .treelines/last_commit for update baseline.`,
+	RunE: runIndex,
 }
 
 func init() {

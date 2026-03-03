@@ -2,6 +2,7 @@ package extractor
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -220,7 +221,7 @@ func extractCallEdges(
 	elementsByID map[string]model.Element,
 	localResolver *Resolver,
 	globalResolver *Resolver,
-	pythonImports *pythonImportMaps,
+	callImports *callImportMaps,
 ) []model.Edge {
 	var edges []model.Edge
 	hintsByEnclosing := make(map[nodeKey]map[string]string)
@@ -259,15 +260,15 @@ func extractCallEdges(
 					targetID, found = globalResolver.ResolveQualified(mappedQualifier, calleeName)
 				}
 			}
-			if !found && pythonImports != nil {
-				if mappedQualifier, ok := pythonImports.qualifierByName[qualifier]; ok && mappedQualifier != "" {
+			if !found && callImports != nil {
+				if mappedQualifier, ok := callImports.qualifierByName[qualifier]; ok && mappedQualifier != "" {
 					targetID, found = globalResolver.ResolveQualified(mappedQualifier, calleeName)
 				}
 			}
 		} else {
 			targetID, found = localResolver.Resolve(calleeName)
-			if !found && pythonImports != nil {
-				if targetName, ok := pythonImports.symbolByName[calleeName]; ok && targetName != "" {
+			if !found && callImports != nil {
+				if targetName, ok := callImports.symbolByName[calleeName]; ok && targetName != "" {
 					targetID, found = globalResolver.Resolve(targetName)
 				}
 			}
@@ -288,12 +289,93 @@ func extractCallEdges(
 	return edges
 }
 
+// callImportMaps stores deterministic import alias mappings for call resolution.
+type callImportMaps struct {
+	qualifierByName map[string]string
+	symbolByName    map[string]string
+}
+
+// newCallImportMaps allocates empty call import maps.
+func newCallImportMaps() *callImportMaps {
+	return &callImportMaps{
+		qualifierByName: make(map[string]string),
+		symbolByName:    make(map[string]string),
+	}
+}
+
 // pythonImportMaps stores deterministic import alias mappings for call resolution.
 type pythonImportMaps struct {
 	qualifierByName map[string]string
 	symbolByName    map[string]string
 	moduleTargets   map[string]struct{}
 	symbolTargets   map[string]struct{}
+}
+
+// callImportMapsFromPython projects Python import maps into call-resolution hints.
+func callImportMapsFromPython(imports *pythonImportMaps) *callImportMaps {
+	if imports == nil {
+		return nil
+	}
+	return &callImportMaps{
+		qualifierByName: imports.qualifierByName,
+		symbolByName:    imports.symbolByName,
+	}
+}
+
+// goImportSpec captures one Go import binding.
+type goImportSpec struct {
+	Binding string
+	Path    string
+}
+
+// parseGoImportSpecs parses Go import specs with alias/binding and import path.
+func parseGoImportSpecs(matches []*tree_sitter.QueryMatch, captureNames []string, source []byte) []goImportSpec {
+	seen := make(map[string]struct{})
+	var specs []goImportSpec
+	for _, m := range matches {
+		caps := captureMap(m, captureNames)
+		importNode, hasImport := caps["import"]
+		pathNode, hasPath := caps["import_path"]
+		if !hasImport || !hasPath || importNode == nil || pathNode == nil {
+			continue
+		}
+		pathText := strings.TrimSpace(nodeText(pathNode, source))
+		path, err := strconv.Unquote(pathText)
+		if err != nil || path == "" {
+			continue
+		}
+		binding := parseGoImportBinding(nodeText(importNode, source))
+		if binding == "." || binding == "_" {
+			continue
+		}
+		if binding == "" {
+			parts := strings.Split(filepath.ToSlash(path), "/")
+			binding = parts[len(parts)-1]
+		}
+		key := binding + "|" + path
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		specs = append(specs, goImportSpec{Binding: binding, Path: filepath.ToSlash(path)})
+	}
+	return specs
+}
+
+// parseGoImportBinding extracts optional alias from an import spec text.
+func parseGoImportBinding(spec string) string {
+	s := strings.TrimSpace(spec)
+	if s == "" {
+		return ""
+	}
+	if strings.HasPrefix(s, "`") || strings.HasPrefix(s, "\"") {
+		return ""
+	}
+	fields := strings.Fields(s)
+	if len(fields) < 2 {
+		return ""
+	}
+	return fields[0]
 }
 
 // extractPythonImportMaps builds import alias maps from captured Python import statements.
@@ -610,8 +692,249 @@ func extractCallQualifier(callNameNode *tree_sitter.Node, source []byte) string 
 		if value != nil {
 			return nodeText(value, source)
 		}
+	case "scoped_identifier":
+		path := parent.ChildByFieldName("path")
+		if path != nil {
+			return nodeText(path, source)
+		}
+		text := nodeText(parent, source)
+		name := nodeText(callNameNode, source)
+		suffix := "::" + name
+		if strings.HasSuffix(text, suffix) {
+			return strings.TrimSuffix(text, suffix)
+		}
 	}
 	return ""
+}
+
+// parseGoImportPaths returns normalized import paths from Go import specs.
+func parseGoImportPaths(matches []*tree_sitter.QueryMatch, captureNames []string, source []byte) []string {
+	specs := parseGoImportSpecs(matches, captureNames, source)
+	seen := make(map[string]struct{}, len(specs))
+	for _, spec := range specs {
+		seen[spec.Path] = struct{}{}
+	}
+	return sortedKeys(seen)
+}
+
+// parseRustUsePaths expands Rust use declarations into normalized paths.
+func parseRustUsePaths(matches []*tree_sitter.QueryMatch, captureNames []string, source []byte) []string {
+	bindings := parseRustUseBindings(matches, captureNames, source)
+	seen := make(map[string]struct{}, len(bindings))
+	for _, b := range bindings {
+		if b.Target == "" {
+			continue
+		}
+		seen[b.Target] = struct{}{}
+	}
+	return sortedKeys(seen)
+}
+
+// rustUseBinding captures one Rust use target with optional local alias.
+type rustUseBinding struct {
+	Target string
+	Alias  string
+}
+
+// parseRustUseBindings parses Rust use declarations into bindings.
+func parseRustUseBindings(matches []*tree_sitter.QueryMatch, captureNames []string, source []byte) []rustUseBinding {
+	seen := make(map[string]struct{})
+	var out []rustUseBinding
+	for _, m := range matches {
+		caps := captureMap(m, captureNames)
+		useNode, ok := caps["use_path"]
+		if !ok || useNode == nil {
+			continue
+		}
+		for _, b := range expandRustUseBindings(nodeText(useNode, source)) {
+			if b.Target == "" {
+				continue
+			}
+			key := b.Target + "|" + b.Alias
+			if _, exists := seen[key]; exists {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
+// sortedKeys returns sorted map keys as a string slice.
+func sortedKeys(values map[string]struct{}) []string {
+	out := make([]string, 0, len(values))
+	for k := range values {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// expandRustUsePaths expands simple Rust use trees into full paths.
+func expandRustUsePaths(text string) []string {
+	bindings := expandRustUseBindings(text)
+	seen := make(map[string]struct{}, len(bindings))
+	for _, b := range bindings {
+		if b.Target != "" {
+			seen[b.Target] = struct{}{}
+		}
+	}
+	return sortedKeys(seen)
+}
+
+// expandRustUseBindings expands simple Rust use trees into full target bindings.
+func expandRustUseBindings(text string) []rustUseBinding {
+	s := strings.TrimSpace(text)
+	s = strings.TrimPrefix(s, "use ")
+	s = strings.TrimSuffix(s, ";")
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.Join(strings.Fields(s), " ")
+	if s == "" {
+		return nil
+	}
+	return expandRustUseExprBindings("", s)
+}
+
+func expandRustUseExprBindings(prefix, expr string) []rustUseBinding {
+	expr = strings.TrimSpace(expr)
+	if expr == "" {
+		return nil
+	}
+
+	parts := splitTopLevel(expr, ',')
+	if len(parts) > 1 {
+		var out []rustUseBinding
+		for _, part := range parts {
+			out = append(out, expandRustUseExprBindings(prefix, part)...)
+		}
+		return out
+	}
+
+	expr = parts[0]
+	if idx := strings.Index(expr, "{"); idx >= 0 {
+		base := strings.TrimSpace(expr[:idx])
+		inner, ok := extractBalancedGroup(expr[idx:], '{', '}')
+		if !ok {
+			return normalizeRustUseLeafBinding(prefix, expr)
+		}
+		basePrefix := joinRustUsePrefix(prefix, strings.TrimSuffix(base, "::"))
+		items := splitTopLevel(inner, ',')
+		var out []rustUseBinding
+		for _, item := range items {
+			out = append(out, expandRustUseExprBindings(basePrefix, item)...)
+		}
+		return out
+	}
+
+	return normalizeRustUseLeafBinding(prefix, expr)
+}
+
+func normalizeRustUseLeafBinding(prefix, leaf string) []rustUseBinding {
+	leaf = strings.TrimSpace(leaf)
+	if leaf == "" {
+		return nil
+	}
+	alias := ""
+	if idx := strings.Index(leaf, " as "); idx >= 0 {
+		alias = strings.TrimSpace(leaf[idx+len(" as "):])
+		leaf = strings.TrimSpace(leaf[:idx])
+	}
+	leaf = strings.TrimPrefix(leaf, "::")
+	if leaf == "" {
+		return nil
+	}
+	if leaf == "*" {
+		return nil
+	}
+	if leaf == "self" {
+		if prefix == "" {
+			return nil
+		}
+		if alias == "" {
+			parts := strings.Split(prefix, "::")
+			alias = parts[len(parts)-1]
+		}
+		return []rustUseBinding{{Target: prefix, Alias: alias}}
+	}
+	joined := joinRustUsePrefix(prefix, leaf)
+	if joined == "" {
+		return nil
+	}
+	if alias == "" {
+		parts := strings.Split(leaf, "::")
+		alias = parts[len(parts)-1]
+	}
+	return []rustUseBinding{{Target: joined, Alias: alias}}
+}
+
+func joinRustUsePrefix(prefix, part string) string {
+	part = strings.TrimSpace(part)
+	part = strings.TrimPrefix(part, "::")
+	part = strings.TrimSuffix(part, "::")
+	if prefix == "" {
+		return part
+	}
+	if part == "" {
+		return prefix
+	}
+	return prefix + "::" + part
+}
+
+func splitTopLevel(s string, sep rune) []string {
+	var out []string
+	start := 0
+	depth := 0
+	for i, r := range s {
+		switch r {
+		case '{', '(', '[':
+			depth++
+		case '}', ')', ']':
+			if depth > 0 {
+				depth--
+			}
+		default:
+			if r == sep && depth == 0 {
+				part := strings.TrimSpace(s[start:i])
+				if part != "" {
+					out = append(out, part)
+				}
+				start = i + 1
+			}
+		}
+	}
+	last := strings.TrimSpace(s[start:])
+	if last != "" {
+		out = append(out, last)
+	}
+	if len(out) == 0 {
+		return []string{strings.TrimSpace(s)}
+	}
+	return out
+}
+
+func extractBalancedGroup(s string, open, close rune) (string, bool) {
+	if s == "" || rune(s[0]) != open {
+		return "", false
+	}
+	depth := 0
+	start := -1
+	for i, r := range s {
+		if r == open {
+			depth++
+			if start < 0 {
+				start = i + 1
+			}
+			continue
+		}
+		if r == close {
+			depth--
+			if depth == 0 && start >= 0 {
+				return strings.TrimSpace(s[start:i]), true
+			}
+		}
+	}
+	return "", false
 }
 
 // nodeKey identifies a tree-sitter node by its start/end byte offsets.
