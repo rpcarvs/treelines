@@ -21,11 +21,25 @@ func NewSQLiteStore() *SQLiteStore {
 
 // Open opens a SQLite database at the given path.
 func (s *SQLiteStore) Open(path string) error {
-	db, err := sql.Open("sqlite", path+"?_busy_timeout=5000")
+	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	if err := applyConnectionPragmas(db); err != nil {
+		_ = db.Close()
+		return err
+	}
 	s.db = db
+	return nil
+}
+
+// applyConnectionPragmas applies per-connection SQLite settings.
+func applyConnectionPragmas(db *sql.DB) error {
+	if _, err := db.Exec(`PRAGMA busy_timeout = 5000`); err != nil {
+		return fmt.Errorf("apply sqlite busy_timeout: %w", err)
+	}
 	return nil
 }
 
@@ -162,6 +176,14 @@ func (s *SQLiteStore) GetCallees(fqName string) ([]model.Element, error) {
 	return s.queryElements(query, model.EdgeCalls, fqName)
 }
 
+// GetImportTargets returns elements imported by a source element.
+func (s *SQLiteStore) GetImportTargets(fromID string) ([]model.Element, error) {
+	query := `SELECT DISTINCT e.* FROM elements e
+		JOIN edges ed ON ed.to_id = e.id
+		WHERE ed.type = ? AND ed.from_id = ?`
+	return s.queryElements(query, model.EdgeImports, fromID)
+}
+
 // GetContained returns elements contained by the named parent element.
 func (s *SQLiteStore) GetContained(name string) ([]model.Element, error) {
 	query := `SELECT DISTINCT e.* FROM elements e
@@ -187,6 +209,20 @@ func (s *SQLiteStore) DeleteEdgesByType(edgeType string) error {
 	_, err := s.db.Exec(`DELETE FROM edges WHERE type = ?`, edgeType)
 	if err != nil {
 		return fmt.Errorf("delete edges by type: %w", err)
+	}
+	return nil
+}
+
+// DeleteDanglingEdgesByType removes edges whose endpoints no longer exist.
+func (s *SQLiteStore) DeleteDanglingEdgesByType(edgeType string) error {
+	_, err := s.db.Exec(`DELETE FROM edges
+		WHERE type = ?
+		AND (
+			from_id NOT IN (SELECT id FROM elements)
+			OR to_id NOT IN (SELECT id FROM elements)
+		)`, edgeType)
+	if err != nil {
+		return fmt.Errorf("delete dangling edges by type: %w", err)
 	}
 	return nil
 }

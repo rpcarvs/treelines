@@ -26,16 +26,17 @@ Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, crea
 | `lines init` | Create `.treelines/` directory and database schema |
 | `lines index` | Full index of the codebase |
 | `lines update` | Incremental re-index of files changed since last indexed commit |
-| `lines serve` | Watch for file changes, re-index automatically, and refresh cross-package CALLS edges |
+| `lines serve` | Watch for file changes, re-index automatically, and refresh cross-file CALLS/IMPORTS/EXPORTS edges |
 
 ### Querying Elements
 
 | Command | Description |
 |---------|-------------|
 | `lines element <name>` | Look up an element by FQName, exact name, or substring |
-| `lines search <substring>` | Search elements by name or FQName substring |
+| `lines search <substring>` | Search symbols by name or FQName substring |
 | `lines list <name>` | List elements contained by a named element (package, struct, etc) |
 | `lines stats` | Show element and edge counts |
+| `lines exports [module]` | Authoritative Python `__all__` export surface query |
 
 ### Querying Relationships
 
@@ -51,6 +52,10 @@ Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, crea
 | `lines query <sql>` | Run raw SQL against the database |
 | `lines query --file <path>` | Read SQL from a file |
 | `lines query --file -` | Read SQL from stdin |
+
+Guidance:
+- Use `search` for symbol lookup.
+- Use `exports` for Python package surface (`__all__`).
 
 ## Global Flags
 
@@ -123,6 +128,12 @@ lines search "Path" --kind function
 
 # Get element metadata without the full body
 lines element "graph.SQLiteStore" --no-body
+
+# List Python modules with static __all__ exports
+lines exports
+
+# Show exported symbols for a module and include __all__ location
+lines exports "__init__" --source
 ```
 
 ## Raw SQL Queries
@@ -156,7 +167,7 @@ commands don't cover. The database has two tables:
 | to_id | TEXT | Target element ID |
 | type | TEXT | Edge type |
 
-Edge types: `CALLS`, `CONTAINS`, `DEFINED_IN`, `IMPLEMENTS`, `EXTENDS`
+Edge types: `CALLS`, `IMPORTS`, `EXPORTS`, `CONTAINS`, `DEFINED_IN`, `IMPLEMENTS`, `EXTENDS`
 
 ### SQL Examples
 
@@ -181,5 +192,7 @@ echo "SELECT e.fq_name, COUNT(*) as call_count FROM elements e JOIN edges ed ON 
 1. **Scanning** - Walks the project tree, respecting `.gitignore`
 2. **Parsing** - Tree-sitter parses each file into a syntax tree
 3. **Extraction** - Language-specific extractors pull elements and intra-file edges
-4. **Cross-reference** - A second pass resolves cross-package CALLS edges (`index`, `update`, and `serve`)
+4. **Cross-reference** - A second pass resolves cross-file edges (`index`, `update`, and `serve`):
+   `CALLS` for Go/Python/Rust, `IMPORTS` for internal Python imports, and
+   `EXPORTS` for static Python `__all__` assignments
 5. **Storage** - Everything goes into SQLite with indexes on name, FQName, and path

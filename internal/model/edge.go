@@ -2,6 +2,8 @@ package model
 
 const (
 	EdgeCalls      = "CALLS"
+	EdgeExports    = "EXPORTS"
+	EdgeImports    = "IMPORTS"
 	EdgeContains   = "CONTAINS"
 	EdgeImplements = "IMPLEMENTS"
 	EdgeExtends    = "EXTENDS"

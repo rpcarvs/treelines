@@ -9,11 +9,12 @@ import (
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
-// ResolveCrossPackageCalls re-parses indexed files and resolves call
-// expressions against all known elements. Returns CALLS edges with
-// cross-package visibility.
+// ResolveCrossPackageCalls re-parses indexed files and resolves
+// cross-file edges against all known elements. It emits CALLS and
+// Python IMPORTS/EXPORTS edges.
 func ResolveCrossPackageCalls(allElements []model.Element, p *parser.Parser, root string) []model.Edge {
 	globalResolver := NewResolver(allElements)
+	allByID := buildElementsByID(allElements)
 
 	type fileGroup struct {
 		lang     string
@@ -74,10 +75,32 @@ func ResolveCrossPackageCalls(allElements []model.Element, p *parser.Parser, roo
 		}
 		localResolver := NewResolver(localElements)
 		elementsByID := buildElementsByID(fg.elements)
+		var pythonImports *pythonImportMaps
+		var pythonExports []string
+		if fg.lang == model.LangPython {
+			pythonImports = extractPythonImportMaps(matches, captureNames, result.Source, moduleNameFromElements(fg.elements))
+			pythonExports = extractPythonAllNames(matches, captureNames, result.Source)
+		}
 
-		callEdges := extractCallEdges(matches, captureNames, result.Source, enclosingKinds, elementsByNode, elementsByID, localResolver, globalResolver)
+		callEdges := extractCallEdges(matches, captureNames, result.Source, enclosingKinds, elementsByNode, elementsByID, localResolver, globalResolver, pythonImports)
 		for _, e := range callEdges {
 			key := e.From + "|" + e.To
+			if !seen[key] {
+				seen[key] = true
+				allEdges = append(allEdges, e)
+			}
+		}
+		importEdges := resolvePythonImportEdges(fg.lang, fg.elements, pythonImports, globalResolver, allByID)
+		for _, e := range importEdges {
+			key := e.Type + "|" + e.From + "|" + e.To
+			if !seen[key] {
+				seen[key] = true
+				allEdges = append(allEdges, e)
+			}
+		}
+		exportEdges := resolvePythonExportEdges(fg.lang, fg.elements, pythonExports, pythonImports, globalResolver, allByID)
+		for _, e := range exportEdges {
+			key := e.Type + "|" + e.From + "|" + e.To
 			if !seen[key] {
 				seen[key] = true
 				allEdges = append(allEdges, e)
@@ -88,6 +111,103 @@ func ResolveCrossPackageCalls(allElements []model.Element, p *parser.Parser, roo
 	}
 
 	return allEdges
+}
+
+// moduleNameFromElements returns the module FQName for file-scoped elements.
+func moduleNameFromElements(elements []model.Element) string {
+	for _, el := range elements {
+		if el.Kind == model.KindModule {
+			return el.FQName
+		}
+	}
+	return ""
+}
+
+// resolvePythonImportEdges resolves internal Python IMPORTS edges from module imports.
+func resolvePythonImportEdges(lang string, elements []model.Element, imports *pythonImportMaps, resolver *Resolver, allByID map[string]model.Element) []model.Edge {
+	if lang != model.LangPython || imports == nil {
+		return nil
+	}
+	moduleID := ""
+	for _, el := range elements {
+		if el.Kind == model.KindModule {
+			moduleID = el.ID
+			break
+		}
+	}
+	if moduleID == "" {
+		return nil
+	}
+
+	var edges []model.Edge
+	for target := range imports.moduleTargets {
+		toID, ok := resolver.Resolve(target)
+		if !ok || toID == moduleID {
+			continue
+		}
+		targetElem, hasTarget := allByID[toID]
+		if !hasTarget || targetElem.Kind != model.KindModule {
+			continue
+		}
+		edges = append(edges, model.Edge{From: moduleID, To: toID, Type: model.EdgeImports})
+	}
+	for target := range imports.symbolTargets {
+		toID, ok := resolver.Resolve(target)
+		if !ok || toID == moduleID {
+			continue
+		}
+		edges = append(edges, model.Edge{From: moduleID, To: toID, Type: model.EdgeImports})
+	}
+	return edges
+}
+
+// resolvePythonExportEdges resolves __all__ exports to internal elements.
+func resolvePythonExportEdges(lang string, elements []model.Element, exportNames []string, imports *pythonImportMaps, resolver *Resolver, allByID map[string]model.Element) []model.Edge {
+	if lang != model.LangPython || len(exportNames) == 0 {
+		return nil
+	}
+	moduleID := ""
+	moduleName := ""
+	for _, el := range elements {
+		if el.Kind == model.KindModule {
+			moduleID = el.ID
+			moduleName = el.FQName
+			break
+		}
+	}
+	if moduleID == "" || moduleName == "" {
+		return nil
+	}
+
+	var edges []model.Edge
+	for _, name := range exportNames {
+		if name == "" {
+			continue
+		}
+		targetID, found := resolver.ResolveQualified(moduleName, name)
+		if !found && imports != nil {
+			if symbolFQName, ok := imports.symbolByName[name]; ok && symbolFQName != "" {
+				targetID, found = resolver.Resolve(symbolFQName)
+			}
+		}
+		if !found && imports != nil {
+			if moduleFQName, ok := imports.qualifierByName[name]; ok && moduleFQName != "" {
+				targetID, found = resolver.Resolve(moduleFQName)
+			}
+		}
+		if !found || targetID == moduleID {
+			continue
+		}
+		if _, ok := allByID[targetID]; !ok {
+			continue
+		}
+		edges = append(edges, model.Edge{
+			From: moduleID,
+			To:   targetID,
+			Type: model.EdgeExports,
+		})
+	}
+	return edges
 }
 
 // mapElementsToNodes matches extracted elements back to their tree-sitter

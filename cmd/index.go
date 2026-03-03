@@ -49,7 +49,7 @@ func runIndex(cmd *cobra.Command, args []string) error {
 	p := parser.NewParser()
 	defer p.Close()
 
-	var totalElements, totalEdges int
+	var attemptedElements, attemptedEdges int
 
 	for _, fi := range files {
 		logVerbose("Parsing %s", fi.RelPath)
@@ -76,18 +76,18 @@ func runIndex(cmd *cobra.Command, args []string) error {
 			if err := store.UpsertElement(el); err != nil {
 				logVerbose("Upsert element error: %v", err)
 			}
-			totalElements++
+			attemptedElements++
 		}
 
 		for _, edge := range extracted.Edges {
 			if err := store.UpsertEdge(edge); err != nil {
 				logVerbose("Upsert edge error: %v", err)
 			}
-			totalEdges++
+			attemptedEdges++
 		}
 	}
 
-	logInfo("Resolving cross-package calls...")
+	logInfo("Resolving cross-file edges...")
 	allElements, err := store.GetAllElements()
 	if err != nil {
 		logVerbose("Get all elements for cross-ref: %v", err)
@@ -95,13 +95,22 @@ func runIndex(cmd *cobra.Command, args []string) error {
 		if err := store.DeleteEdgesByType(model.EdgeCalls); err != nil {
 			logVerbose("Delete old CALLS edges: %v", err)
 		}
+		if err := store.DeleteEdgesByType(model.EdgeImports); err != nil {
+			logVerbose("Delete old IMPORTS edges: %v", err)
+		}
+		if err := store.DeleteEdgesByType(model.EdgeExports); err != nil {
+			logVerbose("Delete old EXPORTS edges: %v", err)
+		}
 		crossEdges := extractor.ResolveCrossPackageCalls(allElements, p, root)
 		for _, e := range crossEdges {
 			if err := store.UpsertEdge(e); err != nil {
 				logVerbose("Upsert cross-ref edge: %v", err)
 			}
 		}
-		logInfo("Resolved %d cross-package call edges", len(crossEdges))
+		if err := store.DeleteDanglingEdgesByType(model.EdgeExtends); err != nil {
+			logVerbose("Delete dangling EXTENDS edges: %v", err)
+		}
+		logInfo("Resolved %d cross-file edges", len(crossEdges))
 	}
 
 	if scanner.IsGitRepo(root) {
@@ -112,6 +121,18 @@ func runIndex(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	logInfo("Indexed %d elements, %d edges from %d files", totalElements, totalEdges, len(files))
+	elementRows, err := store.RunSQL("SELECT COUNT(*) AS count FROM elements")
+	if err != nil || len(elementRows) == 0 {
+		logInfo("Indexed %d element upserts, %d edge upserts from %d files", attemptedElements, attemptedEdges, len(files))
+		return nil
+	}
+	edgeRows, err := store.RunSQL("SELECT COUNT(*) AS count FROM edges")
+	if err != nil || len(edgeRows) == 0 {
+		logInfo("Indexed %d element upserts, %d edge upserts from %d files", attemptedElements, attemptedEdges, len(files))
+		return nil
+	}
+	persistedElements := toInt64(elementRows[0]["count"])
+	persistedEdges := toInt64(edgeRows[0]["count"])
+	logInfo("Indexed %d files (persisted: %d elements, %d edges)", len(files), persistedElements, persistedEdges)
 	return nil
 }

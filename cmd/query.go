@@ -25,7 +25,7 @@ The database has two tables:
              loc, signature, visibility, docstring, body
   edges    - from_id, to_id, type
 
-Edge types: CALLS, CONTAINS, DEFINED_IN, IMPLEMENTS, EXTENDS
+Edge types: CALLS, IMPORTS, EXPORTS, CONTAINS, DEFINED_IN, IMPLEMENTS, EXTENDS
 
 Examples:
   echo "SELECT fq_name, loc FROM elements WHERE kind = 'function' ORDER BY loc DESC LIMIT 10" | lines query --file -

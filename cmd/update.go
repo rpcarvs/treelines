@@ -118,7 +118,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		reindexed++
 	}
 
-	logInfo("Resolving cross-package calls...")
+	logInfo("Resolving cross-file edges...")
 	allElements, err := store.GetAllElements()
 	if err != nil {
 		logVerbose("Get all elements for cross-ref: %v", err)
@@ -126,13 +126,22 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		if err := store.DeleteEdgesByType(model.EdgeCalls); err != nil {
 			logVerbose("Delete old CALLS edges: %v", err)
 		}
+		if err := store.DeleteEdgesByType(model.EdgeImports); err != nil {
+			logVerbose("Delete old IMPORTS edges: %v", err)
+		}
+		if err := store.DeleteEdgesByType(model.EdgeExports); err != nil {
+			logVerbose("Delete old EXPORTS edges: %v", err)
+		}
 		crossEdges := extractor.ResolveCrossPackageCalls(allElements, p, root)
 		for _, e := range crossEdges {
 			if err := store.UpsertEdge(e); err != nil {
 				logVerbose("Upsert cross-ref edge: %v", err)
 			}
 		}
-		logInfo("Resolved %d cross-package call edges", len(crossEdges))
+		if err := store.DeleteDanglingEdgesByType(model.EdgeExtends); err != nil {
+			logVerbose("Delete dangling EXTENDS edges: %v", err)
+		}
+		logInfo("Resolved %d cross-file edges", len(crossEdges))
 	}
 
 	commit, err := scanner.CurrentCommit(root)

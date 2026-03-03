@@ -19,7 +19,10 @@ var rootCmd = &cobra.Command{
 	Short: "Code intelligence powered by Tree-sitter and graph queries",
 	Long: `Treelines parses codebases using Tree-sitter, extracts code elements
 (functions, methods, classes, structs, interfaces, traits, enums, impl blocks, modules), and stores them in a
-local SQLite database for queryable code intelligence.`,
+local SQLite database for queryable code intelligence.
+
+Use symbol commands (element/search/list/uses/callees) for structural graph work.
+Use exports for Python __all__ package surface.`,
 }
 
 // Execute runs the root cobra command and exits on error.

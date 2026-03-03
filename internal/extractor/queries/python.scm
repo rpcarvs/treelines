@@ -23,14 +23,15 @@
 )
 
 ;; Import statements
-(import_statement
-  name: (dotted_name) @import_name
-) @import
+(import_statement) @import
 
-(import_from_statement
-  module_name: (dotted_name) @module
-  name: (dotted_name) @import_name
-) @import
+(import_from_statement) @import
+
+;; Static export surface
+(assignment
+  left: (identifier) @assign_name
+  right: (_) @assign_value
+) @assignment
 
 ;; Call expressions
 (call

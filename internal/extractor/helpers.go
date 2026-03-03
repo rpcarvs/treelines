@@ -3,6 +3,8 @@ package extractor
 import (
 	"fmt"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 
 	"lines/internal/model"
@@ -218,6 +220,7 @@ func extractCallEdges(
 	elementsByID map[string]model.Element,
 	localResolver *Resolver,
 	globalResolver *Resolver,
+	pythonImports *pythonImportMaps,
 ) []model.Edge {
 	var edges []model.Edge
 	hintsByEnclosing := make(map[nodeKey]map[string]string)
@@ -256,8 +259,18 @@ func extractCallEdges(
 					targetID, found = globalResolver.ResolveQualified(mappedQualifier, calleeName)
 				}
 			}
+			if !found && pythonImports != nil {
+				if mappedQualifier, ok := pythonImports.qualifierByName[qualifier]; ok && mappedQualifier != "" {
+					targetID, found = globalResolver.ResolveQualified(mappedQualifier, calleeName)
+				}
+			}
 		} else {
 			targetID, found = localResolver.Resolve(calleeName)
+			if !found && pythonImports != nil {
+				if targetName, ok := pythonImports.symbolByName[calleeName]; ok && targetName != "" {
+					targetID, found = globalResolver.Resolve(targetName)
+				}
+			}
 		}
 		if !found {
 			continue
@@ -275,10 +288,219 @@ func extractCallEdges(
 	return edges
 }
 
+// pythonImportMaps stores deterministic import alias mappings for call resolution.
+type pythonImportMaps struct {
+	qualifierByName map[string]string
+	symbolByName    map[string]string
+	moduleTargets   map[string]struct{}
+	symbolTargets   map[string]struct{}
+}
+
+// extractPythonImportMaps builds import alias maps from captured Python import statements.
+func extractPythonImportMaps(matches []*tree_sitter.QueryMatch, captureNames []string, source []byte, moduleName string) *pythonImportMaps {
+	result := &pythonImportMaps{
+		qualifierByName: make(map[string]string),
+		symbolByName:    make(map[string]string),
+		moduleTargets:   make(map[string]struct{}),
+		symbolTargets:   make(map[string]struct{}),
+	}
+	for _, m := range matches {
+		caps := captureMap(m, captureNames)
+		importNode, ok := caps["import"]
+		if !ok || importNode == nil {
+			continue
+		}
+		parsePythonImportStatement(nodeText(importNode, source), moduleName, result)
+	}
+	if len(result.qualifierByName) == 0 && len(result.symbolByName) == 0 {
+		return nil
+	}
+	return result
+}
+
+// parsePythonImportStatement parses one Python import statement into import maps.
+func parsePythonImportStatement(stmt, moduleName string, maps *pythonImportMaps) {
+	s := strings.TrimSpace(stmt)
+	if s == "" {
+		return
+	}
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "(", "")
+	s = strings.ReplaceAll(s, ")", "")
+	s = strings.Join(strings.Fields(s), " ")
+
+	if strings.HasPrefix(s, "import ") {
+		body := strings.TrimSpace(strings.TrimPrefix(s, "import "))
+		for _, item := range splitCSV(body) {
+			name, alias := parsePythonImportItem(item)
+			if name == "" {
+				continue
+			}
+			if alias != "" {
+				maps.qualifierByName[alias] = name
+			} else {
+				root := name
+				if idx := strings.Index(root, "."); idx > 0 {
+					root = root[:idx]
+				}
+				maps.qualifierByName[root] = root
+			}
+			maps.moduleTargets[name] = struct{}{}
+		}
+		return
+	}
+
+	if strings.HasPrefix(s, "from ") {
+		body := strings.TrimSpace(strings.TrimPrefix(s, "from "))
+		idx := strings.Index(body, " import ")
+		if idx < 0 {
+			return
+		}
+		modulePart := strings.TrimSpace(body[:idx])
+		importsPart := strings.TrimSpace(body[idx+len(" import "):])
+		if importsPart == "*" {
+			return
+		}
+		resolvedModule := resolvePythonRelativeModule(moduleName, modulePart)
+		if resolvedModule == "" {
+			return
+		}
+		for _, item := range splitCSV(importsPart) {
+			name, alias := parsePythonImportItem(item)
+			if name == "" {
+				continue
+			}
+			binding := alias
+			if binding == "" {
+				binding = name
+				if dot := strings.Index(binding, "."); dot > 0 {
+					binding = binding[:dot]
+				}
+			}
+			maps.symbolByName[binding] = resolvedModule + "." + name
+			maps.symbolTargets[resolvedModule+"."+name] = struct{}{}
+		}
+	}
+}
+
+// parsePythonImportItem parses "name" or "name as alias".
+func parsePythonImportItem(item string) (name, alias string) {
+	s := strings.TrimSpace(item)
+	if s == "" {
+		return "", ""
+	}
+	parts := strings.SplitN(s, " as ", 2)
+	name = strings.TrimSpace(parts[0])
+	if len(parts) == 2 {
+		alias = strings.TrimSpace(parts[1])
+	}
+	return name, alias
+}
+
+// splitCSV splits comma-separated import lists.
+func splitCSV(s string) []string {
+	raw := strings.Split(s, ",")
+	out := make([]string, 0, len(raw))
+	for _, part := range raw {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+// resolvePythonRelativeModule resolves ".foo" style module references.
+func resolvePythonRelativeModule(currentModule, modulePart string) string {
+	if modulePart == "" {
+		return ""
+	}
+	if !strings.HasPrefix(modulePart, ".") {
+		return modulePart
+	}
+
+	dotCount := 0
+	for dotCount < len(modulePart) && modulePart[dotCount] == '.' {
+		dotCount++
+	}
+	rest := strings.TrimPrefix(modulePart, strings.Repeat(".", dotCount))
+
+	parts := strings.Split(currentModule, ".")
+	if dotCount > len(parts) {
+		return ""
+	}
+	base := parts[:len(parts)-dotCount]
+	if rest != "" {
+		base = append(base, strings.Split(rest, ".")...)
+	}
+	return strings.Join(base, ".")
+}
+
+// extractPythonAllNames parses static __all__ assignments into exported symbols.
+func extractPythonAllNames(matches []*tree_sitter.QueryMatch, captureNames []string, source []byte) []string {
+	names, _, _ := extractPythonAllNamesAndLine(matches, captureNames, source)
+	return names
+}
+
+// extractPythonAllNamesAndLine parses static __all__ assignments and first assignment line.
+func extractPythonAllNamesAndLine(matches []*tree_sitter.QueryMatch, captureNames []string, source []byte) ([]string, int, bool) {
+	seen := make(map[string]struct{})
+	line := 0
+	hasLine := false
+	for _, m := range matches {
+		caps := captureMap(m, captureNames)
+		assignNode, hasAssign := caps["assignment"]
+		assignName, hasName := caps["assign_name"]
+		assignValue, hasValue := caps["assign_value"]
+		if !hasName || !hasValue || assignName == nil || assignValue == nil {
+			continue
+		}
+		if nodeText(assignName, source) != "__all__" {
+			continue
+		}
+		if hasAssign && assignNode != nil && !hasLine {
+			line = int(assignNode.StartPosition().Row) + 1
+			hasLine = true
+		}
+		for _, name := range parsePythonStaticStringSequence(nodeText(assignValue, source)) {
+			if name != "" {
+				seen[name] = struct{}{}
+			}
+		}
+	}
+	var names []string
+	for name := range seen {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, line, hasLine
+}
+
+// parsePythonStaticStringSequence parses list/tuple string literals.
+func parsePythonStaticStringSequence(expr string) []string {
+	text := strings.TrimSpace(expr)
+	if text == "" {
+		return nil
+	}
+	if !strings.HasPrefix(text, "[") && !strings.HasPrefix(text, "(") {
+		return nil
+	}
+	var out []string
+	for _, m := range pyStringLitRe.FindAllStringSubmatch(text, -1) {
+		unquoted, err := strconv.Unquote(m[0])
+		if err != nil {
+			continue
+		}
+		out = append(out, unquoted)
+	}
+	return out
+}
+
 var (
 	goShortVarTypeRe = regexp.MustCompile(`\b([A-Za-z_]\w*)\s*:=\s*&?([A-Za-z_]\w*)\s*\{`)
 	goVarDeclTypeRe  = regexp.MustCompile(`\bvar\s+([A-Za-z_]\w*)\s+\*?([A-Za-z_]\w*)\b`)
 	goNewTypeCallRe  = regexp.MustCompile(`\b([A-Za-z_]\w*)\s*:=\s*(?:([A-Za-z_]\w*)\.)?New([A-Za-z_]\w*)\s*\(`)
+	pyStringLitRe    = regexp.MustCompile(`'([^'\\]*(?:\\.[^'\\]*)*)'|"([^"\\]*(?:\\.[^"\\]*)*)"`)
 )
 
 // qualifierHintsForCall builds deterministic qualifier substitutions for receiver/self
@@ -317,15 +539,15 @@ func qualifierHintsForCall(enclosing *tree_sitter.Node, source []byte, caller mo
 				hints[m[1]] = pkg + "." + m[2]
 			}
 		}
-	for _, m := range goNewTypeCallRe.FindAllStringSubmatch(text, -1) {
-		if len(m) == 4 {
-			typePkg := pkg
-			if m[2] != "" {
-				typePkg = m[2]
+		for _, m := range goNewTypeCallRe.FindAllStringSubmatch(text, -1) {
+			if len(m) == 4 {
+				typePkg := pkg
+				if m[2] != "" {
+					typePkg = m[2]
+				}
+				hints[m[1]] = typePkg + "." + m[3]
 			}
-			hints[m[1]] = typePkg + "." + m[3]
 		}
-	}
 
 	case model.LangPython:
 		if caller.Kind == model.KindMethod {
