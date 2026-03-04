@@ -1,270 +1,219 @@
 # Treelines
 
-Code intelligence CLI powered by Tree-sitter. Parses codebases, extracts structural
-elements (functions, methods, classes, structs, interfaces, traits, enums, impl blocks, modules), maps their relationships,
-and stores everything in a local SQLite graph for fast querying.
+Treelines is a local code-intelligence CLI for Go, Python, and Rust.
+It parses source files with Tree-sitter, stores symbols and relationships in SQLite, and provides compact deterministic queries for agents and humans.
 
-Supports **Go**, **Python**, and **Rust**.
+## Table of Contents
+
+- [Why Treelines](#why-treelines)
+- [Quick Start](#quick-start)
+- [Agent Workflow](#agent-workflow)
+- [Install Skill and Context](#install-skill-and-context)
+- [Command Reference](#command-reference)
+- [Examples](#examples)
+- [Data Model](#data-model)
+- [How It Works](#how-it-works)
+- [Notes and Limits](#notes-and-limits)
+
+## Why Treelines
+
+- Fast structural discovery before expensive file reads
+- Can provide massive token savings for agents
+- Deterministic local graph database (no remote service)
+- Compact CLI output designed for token-efficient workflows
+- Works across Go, Python, and Rust with a common query surface
 
 ## Quick Start
 
 ```bash
 go install .
+#
 lines init
 lines index
+lines stats
 ```
 
-This creates a `.treelines/` directory with a `codestore.db` SQLite database.
-Add `.treelines/` to your `.gitignore`. If `.gitignore` does not exist yet, create it first.
-`lines init` is idempotent and does not wipe existing indexed data.
+What this does:
+- Creates `.treelines/codestore.db`
+- Initializes schema and indexes
+- Builds a full code snapshot
 
-## Install Skills
+Notes:
+- `lines init` is idempotent and does not wipe indexed data
+- `lines index` performs full snapshot replacement (removed code is removed from DB)
+- Add `.treelines/` to `.gitignore`
 
-`lines` ships built-in installer commands for the `lines-codebase-exploration` skill:
+## Agent Workflow
+
+Recommended deterministic workflow when agents do not auto-commit:
+
+1. `lines init`
+2. `lines index` before coding starts
+3. Use `lines` commands first for exploration and narrowing scope
+4. Run `lines index` again when you need a fresh post-edit snapshot
+
+For git commit-based workflows, `lines update` can be used in step 4 instead. It uses the last indexed git commit to update the database for only modified files instead of full index.
+
+Alternatively, a `lines serve` creates a "daemon" that constantly update modified files. Probably only interesting for large codebases.
+
+## Install Skill and Context
+
+Install bundled skill:
 
 ```bash
 lines install codex-skill
 lines install claude-skill
 ```
 
-Use `--force` to overwrite an existing install:
+Install or refresh managed context policy block:
 
 ```bash
-lines install codex-skill --force
-lines install claude-skill --force
+# global
+lines install codex-context
+lines install claude-context
+
+# project-local
+lines install codex-context --local
+lines install claude-context --local
 ```
 
-## Agent Workflow (No serve)
+Context targets:
+- global: `~/.codex/AGENTS.md`, `~/.claude/CLAUDE.md`
+- local: `./AGENTS.md`, `./CLAUDE.md`
 
-Recommended deterministic workflow for agents that do not auto-commit:
+Context blocks are managed and replaced by internal markers on re-run.
 
-1. `lines init`
-2. `lines index` before coding starts
-3. Use `lines` commands first for discovery and relationships
-4. Run `lines index` again when a fresh snapshot is needed after edits
+## Command Reference
 
-In this workflow, skip `lines update`.
+### Setup and Lifecycle
 
-## Commands
+| Command | Purpose |
+|---|---|
+| `lines init` | Create `.treelines/` and initialize schema |
+| `lines index` | Full re-index snapshot |
+| `lines update` | Incremental re-index from `.treelines/last_commit` to git `HEAD` |
+| `lines serve` | Watch file changes and incrementally re-index (filesystem-event based) |
+| `lines stats` | Counts by kind, language, and edge type |
 
-### Setup
+### Discovery
 
-| Command | Description |
-|---------|-------------|
-| `lines init` | Create `.treelines/` directory and database schema (idempotent) |
-| `lines index` | Full index snapshot of the codebase (replaces previous DB snapshot) |
-| `lines install codex-skill` | Install the bundled Codex skill |
-| `lines install claude-skill` | Install the bundled Claude skill |
-| `lines update` | Incremental re-index of files changed between `.treelines/last_commit` and git `HEAD` |
-| `lines serve` | Watch for file changes and incrementally re-index (filesystem-event based, not git-dependent) |
+| Command | Purpose |
+|---|---|
+| `lines search <substring>` | Symbol-oriented name/FQName search |
+| `lines element <name>` | FQName > exact short name > substring lookup |
+| `lines list <name\|.\|*>` | Contained elements; `.` or `*` means repo-wide scope |
 
-### Querying Elements
+### Relationships
 
-| Command | Description |
-|---------|-------------|
-| `lines element <name>` | Look up an element by FQName, exact name, or substring |
-| `lines search <substring>` | Search symbols by name or FQName substring |
-| `lines list <name\|.\|*>` | List elements contained by a named element; use `.` or `*` for repo-wide scope |
-| `lines stats` | Show element and edge counts |
-| `lines imports [module]` | Internal import dependency surface query |
-| `lines exports [module]` | Module-local export surface (Python `__all__`, Go/Rust public symbols; non-recursive) |
-
-### Querying Relationships
-
-| Command | Description |
-|---------|-------------|
-| `lines uses <fq_name>` | Who calls this function? |
-| `lines callees <fq_name>` | What does this function call? |
-| `lines imports [module]` | What does this module import? |
+| Command | Purpose |
+|---|---|
+| `lines callees <fq_name>` | Outgoing calls from an element |
+| `lines uses <fq_name>` | Incoming callers of an element |
+| `lines imports [module]` | Internal import dependencies |
+| `lines exports [module]` | Export surface (Python `__all__`, Go/Rust public symbols) |
 | `lines module-graph [module]` | Module summary, or repo overview without args |
 
 ### Advanced
 
-| Command | Description |
-|---------|-------------|
-| `lines query <sql>` | Run raw SQL against the database |
-| `lines query --file <path>` | Read SQL from a file |
+| Command | Purpose |
+|---|---|
+| `lines query <sql>` | Execute raw SQL |
+| `lines query --file <path>` | Read SQL from file |
 | `lines query --file -` | Read SQL from stdin |
-| `lines query --schema` | Show schema and sample queries |
+| `lines query --schema` | Print schema and sample queries |
 
-Guidance:
-- Use `search` for symbol lookup.
-- Use `exports` for language-aware export surface.
-- `update` is commit-marker based and does not include unstaged or uncommitted edits.
-- Use `lines --help` and `lines <command> --help` when in doubt.
+### Installers
 
-## Command Reference (Short Examples)
+| Command | Purpose |
+|---|---|
+| `lines install codex-skill` | Install bundled Codex skill |
+| `lines install claude-skill` | Install bundled Claude skill |
+| `lines install codex-context [--local]` | Install/update Codex context policy block |
+| `lines install claude-context [--local]` | Install/update Claude context policy block |
+
+Global flags:
+`--json`, `--no-body`, `--verbose`, `--quiet`, `--db <path>`
+
+Use `lines --help` and `lines <command> --help` for command details.
+
+## Examples
 
 ```bash
-# Setup and indexing
-lines init
-lines index
-lines serve
-lines update
-
 # Discovery
 lines stats
+lines list . --kind module
 lines search "Scanner"
 lines element "graph.SQLiteStore.Open"
-lines list "cmd" --kind function
-lines list . --kind module
 
 # Relationships
 lines callees "cmd.runIndex"
 lines uses "graph.SQLiteStore.Open"
 lines imports "cmd"
-lines module-graph "cmd"
 lines module-graph
+lines module-graph "cmd"
 
 # Export surface
 lines exports
 lines exports "crate::ml"
 lines exports "__init__" --source
 
-# SQL access
+# SQL
 lines query --schema
-lines query "SELECT kind, COUNT(*) AS c FROM elements GROUP BY kind ORDER BY c DESC"
+echo "SELECT kind, COUNT(*) AS c FROM elements GROUP BY kind ORDER BY c DESC" | lines query --file -
 ```
 
-## Global Flags
+## Data Model
 
-| Flag | Description |
-|------|-------------|
-| `--no-body` | Strip function/method bodies from element detail output |
-| `--json` | Output as JSON instead of compact text |
-| `--verbose` | Show detailed progress during indexing |
-| `--quiet` | Suppress non-essential output |
-| `--db <path>` | Override database path |
-
-## Output Format
-
-Default output is compact text optimized for token efficiency.
-
-Lists show a header row followed by one line per element:
-```
-KIND       FQNAME                                   PATH                           VIS      LOC
-function   cmd.runIndex                             cmd/index.go:26     private  87 loc
-```
-
-Single element detail shows structured metadata and body:
-```
-go function cmd.runIndex (private)
-  cmd/index.go:26-112 (87 loc)
-  func runIndex(cmd *cobra.Command, args []string) error {
-  # description from docstring
-
-func runIndex(cmd *cobra.Command, args []string) error {
-    ...
-}
-```
-
-Use `--no-body` to hide the source body. Use `--json` when you need machine-parseable output.
-
-## Element Kinds
-
-Values for `--kind` filters and the `kind` column in SQL:
-
-`function`, `method`, `class`, `struct`, `interface`, `trait`, `enum`, `impl`, `module`
-
-## Fully Qualified Names
-
-Elements are identified by fully qualified names (FQName). The format depends on
-the language:
-
-- **Go:** `package.Function`, `package.Type.Method` (e.g., `graph.SQLiteStore.Open`)
-- **Python:** `module.Class.method` with dot-separated paths (e.g., `scanner.Scanner.scan`)
-- **Rust:** `crate::module::Type::method` with `::` separators
-
-Use `lines search` to discover FQNames when you don't know the exact format.
-
-## Examples
-
-```bash
-# Find a function by name
-lines element "SQLiteStore.Open"
-
-# List all public functions in a package
-lines list graph --public --kind function
-
-# What does runIndex call?
-lines callees "cmd.runIndex"
-
-# Who calls NewScanner?
-lines uses "scanner.NewScanner"
-
-# Search for anything matching "Path", only functions
-lines search "Path" --kind function
-
-# Get element metadata without the full body
-lines element "graph.SQLiteStore" --no-body
-
-# List modules/packages with exports
-lines exports
-
-# Show exports for Rust/Go/Python module/package
-# Note: Rust/Go exports are module-local and non-recursive.
-lines exports "crate::ml"
-lines exports "graph"
-lines exports "__init__" --source
-```
-
-## Raw SQL Queries
-
-The `query` command provides direct SQL access for analysis that the structured
-commands don't cover. The database has two tables:
+Treelines stores data in two SQLite tables.
 
 ### elements
 
-| Column | Type | Description |
-|--------|------|-------------|
-| id | TEXT | Deterministic hash ID |
-| language | TEXT | `go`, `python`, or `rust` |
-| kind | TEXT | Element kind (see list above) |
-| name | TEXT | Short name |
-| fq_name | TEXT | Fully qualified name |
-| path | TEXT | Relative file path |
-| start_line | INTEGER | First line |
-| end_line | INTEGER | Last line |
-| loc | INTEGER | Lines of code |
-| signature | TEXT | First line of declaration |
-| visibility | TEXT | `public` or `private` |
-| docstring | TEXT | Extracted documentation |
-| body | TEXT | Full source text |
+| Column |
+|---|
+| `id` |
+| `language` |
+| `kind` |
+| `name` |
+| `fq_name` |
+| `path` |
+| `start_line` |
+| `end_line` |
+| `loc` |
+| `signature` |
+| `visibility` |
+| `docstring` |
+| `body` |
 
 ### edges
 
-| Column | Type | Description |
-|--------|------|-------------|
-| from_id | TEXT | Source element ID |
-| to_id | TEXT | Target element ID |
-| type | TEXT | Edge type |
+| Column |
+|---|
+| `from_id` |
+| `to_id` |
+| `type` |
 
-Edge types: `CALLS`, `IMPORTS`, `EXPORTS`, `CONTAINS`, `DEFINED_IN`, `IMPLEMENTS`, `EXTENDS`
+Edge types:
+`CALLS`, `IMPORTS`, `EXPORTS`, `CONTAINS`, `DEFINED_IN`, `IMPLEMENTS`, `EXTENDS`
 
-### SQL Examples
+Element kinds:
+`function`, `method`, `class`, `struct`, `interface`, `trait`, `enum`, `impl`, `module`
 
-Shell quoting can make single quotes difficult. Use `--file -` to pipe SQL via stdin:
-
-```bash
-# Find the 10 largest functions
-echo "SELECT fq_name, loc FROM elements WHERE kind = 'function' ORDER BY loc DESC LIMIT 10" \
-  | lines query --file -
-
-# Count elements per file
-echo "SELECT path, COUNT(*) as cnt FROM elements GROUP BY path ORDER BY cnt DESC" \
-  | lines query --file -
-
-# Find functions that call more than 5 other functions
-echo "SELECT e.fq_name, COUNT(*) as call_count FROM elements e JOIN edges ed ON ed.from_id = e.id WHERE ed.type = 'CALLS' GROUP BY e.id HAVING call_count > 5 ORDER BY call_count DESC" \
-  | lines query --file -
-```
+FQName formats:
+- Go: `pkg.Func`, `pkg.Type.Method`
+- Python: `module.Class.method`
+- Rust: `crate::module::Type::method`
 
 ## How It Works
 
-1. **Scanning** - Walks the project tree, respecting `.gitignore`
-2. **Parsing** - Tree-sitter parses each file into a syntax tree
-3. **Extraction** - Language-specific extractors pull elements and intra-file edges
-4. **Cross-reference** - A second pass resolves cross-file edges (`index`, `update`, and `serve`):
-   `CALLS` for Go/Python/Rust, `IMPORTS` for internal Go/Python/Rust imports, and
-   `EXPORTS` for static Python `__all__` assignments
-5. **Storage** - Everything goes into SQLite with indexes on name, FQName, and path
+1. Scan files while honoring `.gitignore`
+2. Parse syntax trees with Tree-sitter
+3. Extract elements and intra-file edges per language
+4. Resolve cross-file edges (`CALLS`, internal `IMPORTS`, Python static `EXPORTS`)
+5. Persist to SQLite with indexed lookups
+
+## Notes and Limits
+
+- `search` is symbol-oriented, not generic text grep
+- `exports` is language-aware; Go/Rust exports are module-local, non-recursive
+- `update` depends on git commit markers and does not include unstaged or uncommitted changes
+- `serve` is not git-dependent
