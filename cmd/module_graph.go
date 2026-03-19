@@ -5,8 +5,8 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"lines/internal/graph"
-	"lines/internal/model"
+	"github.com/rpcarvs/treelines/internal/graph"
+	"github.com/rpcarvs/treelines/internal/model"
 
 	"github.com/spf13/cobra"
 )

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"lines/internal/scanner"
+	"github.com/rpcarvs/treelines/internal/scanner"
 
 	"github.com/fsnotify/fsnotify"
 )

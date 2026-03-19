@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"lines/internal/model"
+	"github.com/rpcarvs/treelines/internal/model"
 
 	"github.com/spf13/cobra"
 )

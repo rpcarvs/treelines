@@ -3,8 +3,8 @@ package extractor
 import (
 	"fmt"
 
-	"lines/internal/model"
-	"lines/internal/parser"
+	"github.com/rpcarvs/treelines/internal/model"
+	"github.com/rpcarvs/treelines/internal/parser"
 )
 
 // ExtractPythonAll parses a Python file and returns static __all__ names and assignment line.

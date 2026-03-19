@@ -1,6 +1,6 @@
 package extractor
 
-import "lines/internal/model"
+import "github.com/rpcarvs/treelines/internal/model"
 
 // Resolver performs name resolution for elements using both simple names
 // and fully qualified names. When multiple elements share a name,

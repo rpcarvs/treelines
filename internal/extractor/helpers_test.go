@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"lines/internal/model"
-	"lines/internal/parser"
+	"github.com/rpcarvs/treelines/internal/model"
+	"github.com/rpcarvs/treelines/internal/parser"
 )
 
 func TestExtractCallQualifier_RustScopedIdentifier(t *testing.T) {
@@ -72,10 +72,11 @@ func TestExpandRustUsePaths(t *testing.T) {
 }
 
 func TestGoImportToDir(t *testing.T) {
-	if got := goImportToDir("lines/internal/scanner", "lines"); got != "internal/scanner" {
+	modulePath := "github.com/rpcarvs/treelines"
+	if got := goImportToDir("github.com/rpcarvs/treelines/internal/scanner", modulePath); got != "internal/scanner" {
 		t.Fatalf("expected internal/scanner, got %q", got)
 	}
-	if got := goImportToDir("github.com/x/y", "lines"); got != "" {
+	if got := goImportToDir("github.com/x/y", modulePath); got != "" {
 		t.Fatalf("expected empty path for external import, got %q", got)
 	}
 }
@@ -85,8 +86,8 @@ func TestParseGoImportSpecs(t *testing.T) {
 	path := filepath.Join(root, "main.go")
 	source := []byte(`package main
 import (
-	cam "lines/internal/camera"
-	"lines/internal/ml"
+	cam "github.com/rpcarvs/treelines/internal/camera"
+	"github.com/rpcarvs/treelines/internal/ml"
 )
 func main() { cam.Start(); ml.Run() }`)
 	if err := osWriteFile(path, source); err != nil {
@@ -112,8 +113,8 @@ func main() { cam.Start(); ml.Run() }`)
 
 	specs := parseGoImportSpecs(matches, names, result.Source)
 	want := map[string]string{
-		"cam": "lines/internal/camera",
-		"ml":  "lines/internal/ml",
+		"cam": "github.com/rpcarvs/treelines/internal/camera",
+		"ml":  "github.com/rpcarvs/treelines/internal/ml",
 	}
 	if len(specs) != len(want) {
 		t.Fatalf("expected %d specs, got %d: %+v", len(want), len(specs), specs)

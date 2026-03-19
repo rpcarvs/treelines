@@ -1,6 +1,6 @@
 package cmd
 
-import "lines/cmd/installskills"
+import "github.com/rpcarvs/treelines/cmd/installskills"
 
 func init() {
 	rootCmd.AddCommand(installskills.NewCommand())

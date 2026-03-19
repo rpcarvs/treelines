@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"lines/internal/extractor"
-	"lines/internal/model"
-	"lines/internal/parser"
-	"lines/internal/scanner"
+	"github.com/rpcarvs/treelines/internal/extractor"
+	"github.com/rpcarvs/treelines/internal/model"
+	"github.com/rpcarvs/treelines/internal/parser"
+	"github.com/rpcarvs/treelines/internal/scanner"
 
 	"github.com/spf13/cobra"
 )

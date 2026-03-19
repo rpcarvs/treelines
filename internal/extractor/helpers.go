@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"lines/internal/model"
-	"lines/internal/parser"
+	"github.com/rpcarvs/treelines/internal/model"
+	"github.com/rpcarvs/treelines/internal/parser"
 
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )

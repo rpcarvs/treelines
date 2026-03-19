@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"lines/internal/model"
+	"github.com/rpcarvs/treelines/internal/model"
 
 	_ "modernc.org/sqlite"
 )

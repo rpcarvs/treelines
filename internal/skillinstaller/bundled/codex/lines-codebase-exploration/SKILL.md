@@ -19,7 +19,11 @@ Run this sequence at the start of any session involving Python, Rust, or Go code
 
 1. `lines init`
 2. `lines index` before work starts
-3. Use `lines` commands for exploration and dependency mapping
+3. Use `lines` commands for exploration and dependency mapping:
+  - lines stats
+  - lines list . --kind module
+  - lines search <entry symbol>
+  - lines callees <entry symbol> or lines uses <symbol>
 4. Run `lines index` again when a fresh post-edit snapshot is needed
 
 Do not use `update` or `serve` in this workflow.

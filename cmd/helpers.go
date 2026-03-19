@@ -9,8 +9,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"lines/internal/graph"
-	"lines/internal/model"
+	"github.com/rpcarvs/treelines/internal/graph"
+	"github.com/rpcarvs/treelines/internal/model"
 )
 
 // resolveRoot returns the project root directory.

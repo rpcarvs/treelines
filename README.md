@@ -26,6 +26,20 @@ It parses source files with Tree-sitter, stores symbols and relationships in SQL
 ## Quick Start
 
 ```bash
+# Install directly from GitHub:
+go install github.com/rpcarvs/treelines@latest
+
+# Or clone the repo and install locally:
+go install .
+# If `lines` is not found, add GOPATH/bin to PATH (Bash example):
+grep -q '$(go env GOPATH)/bin' ~/.bashrc || echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
+source ~/.bashrc
+lines init
+lines index
+lines stats
+```
+
+```bash
 go install .
 #
 lines init

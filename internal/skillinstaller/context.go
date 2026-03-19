@@ -22,7 +22,7 @@ var (
 
 const mandatoryContextBody = `# MANDATORY codebase exploration for Python, Rust and Go
 
-Always invoke the lines-codebase-exploration skill before exploring these languages codebases. Do not use other exploration paths as a substitute.
+Always invoke the ` + "`lines-codebase-exploration`" + ` skill before exploring these languages codebases. Do not use other exploration paths as a substitute.
 
 Red flag: If you're about to Explore or use Read/Glob/Grep to understand the referred languages codebase, STOP. You must invoke the lines-codebase-exploration skill first. Exploring without lines is never the faster path.
 

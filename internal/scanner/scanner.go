@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"lines/internal/model"
+	"github.com/rpcarvs/treelines/internal/model"
 )
 
 var extToLang = map[string]string{

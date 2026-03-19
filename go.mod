@@ -1,4 +1,4 @@
-module lines
+module github.com/rpcarvs/treelines
 
 go 1.25.0
 

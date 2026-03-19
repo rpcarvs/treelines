@@ -3,8 +3,8 @@ package installskills
 import (
 	"fmt"
 
+	"github.com/rpcarvs/treelines/internal/skillinstaller"
 	"github.com/spf13/cobra"
-	"lines/internal/skillinstaller"
 )
 
 // newCodexSkillCommand installs the bundled Codex skill package.

@@ -1,6 +1,6 @@
 package main
 
-import "lines/cmd"
+import "github.com/rpcarvs/treelines/cmd"
 
 func main() {
 	cmd.Execute()

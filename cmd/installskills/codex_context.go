@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/rpcarvs/treelines/internal/skillinstaller"
 	"github.com/spf13/cobra"
-	"lines/internal/skillinstaller"
 )
 
 // newCodexContextCommand installs the managed Codex global context block.

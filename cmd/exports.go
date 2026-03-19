@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"lines/internal/extractor"
-	"lines/internal/graph"
-	"lines/internal/model"
-	"lines/internal/parser"
+	"github.com/rpcarvs/treelines/internal/extractor"
+	"github.com/rpcarvs/treelines/internal/graph"
+	"github.com/rpcarvs/treelines/internal/model"
+	"github.com/rpcarvs/treelines/internal/parser"
 
 	"github.com/spf13/cobra"
 )
