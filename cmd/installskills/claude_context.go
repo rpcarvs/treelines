@@ -15,8 +15,8 @@ func newClaudeContextCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "claude-context",
-		Short: "Install the lines policy block into Claude global CLAUDE.md",
-		Long: `Install or refresh the managed lines policy block for Claude.
+		Short: "Install the treelines policy block into Claude global CLAUDE.md",
+		Long: `Install or refresh the managed treelines policy block for Claude.
 
 Default target: ~/.claude/CLAUDE.md.
 Use --local to target ./CLAUDE.md in the current directory.`,

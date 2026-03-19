@@ -15,8 +15,8 @@ func newCodexContextCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "codex-context",
-		Short: "Install the lines policy block into Codex global AGENTS.md",
-		Long: `Install or refresh the managed lines policy block for Codex.
+		Short: "Install the treelines policy block into Codex global AGENTS.md",
+		Long: `Install or refresh the managed treelines policy block for Codex.
 
 Default target: ~/.codex/AGENTS.md (or $CODEX_HOME/AGENTS.md).
 Use --local to target ./AGENTS.md in the current directory.`,

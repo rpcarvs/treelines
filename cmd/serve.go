@@ -22,7 +22,7 @@ var serveCmd = &cobra.Command{
 	Long: `Watch source files and incrementally re-index on changes.
 
 serve is filesystem-event based and not git-dependent.
-Run "lines index" first to build an initial complete snapshot.`,
+Run "treelines index" first to build an initial complete snapshot.`,
 	RunE: runServe,
 }
 

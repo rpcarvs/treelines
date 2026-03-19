@@ -10,21 +10,24 @@ import (
 )
 
 const (
-	contextBlockBegin = "<!-- LINES-CODEBASE-EXPLORATION:BEGIN -->"
-	contextBlockEnd   = "<!-- LINES-CODEBASE-EXPLORATION:END -->"
+	contextBlockBegin = "<!-- TREELINES-CODEBASE-EXPLORATION:BEGIN -->"
+	contextBlockEnd   = "<!-- TREELINES-CODEBASE-EXPLORATION:END -->"
+	legacyBlockBegin  = "<!-- LINES-CODEBASE-EXPLORATION:BEGIN -->"
+	legacyBlockEnd    = "<!-- LINES-CODEBASE-EXPLORATION:END -->"
 )
 
 var (
 	managedContextBlockPattern = regexp.MustCompile(`(?s)` + regexp.QuoteMeta(contextBlockBegin) + `.*?` + regexp.QuoteMeta(contextBlockEnd))
+	legacyManagedBlockPattern  = regexp.MustCompile(`(?s)` + regexp.QuoteMeta(legacyBlockBegin) + `.*?` + regexp.QuoteMeta(legacyBlockEnd))
 	legacyHeaderPattern        = regexp.MustCompile(`(?m)^# MANDATORY codebase exploration.*$`)
 	topHeadingPattern          = regexp.MustCompile(`(?m)^# `)
 )
 
 const mandatoryContextBody = `# MANDATORY codebase exploration for Python, Rust and Go
 
-Always invoke the ` + "`lines-codebase-exploration`" + ` skill before exploring these languages codebases. Do not use other exploration paths as a substitute.
+Always invoke the ` + "`treelines-codebase-exploration`" + ` skill before exploring these languages codebases. Do not use other exploration paths as a substitute.
 
-Red flag: If you're about to Explore or use Read/Glob/Grep to understand the referred languages codebase, STOP. You must invoke the lines-codebase-exploration skill first. Exploring without lines is never the faster path.
+Red flag: If you're about to Explore or use Read/Glob/Grep to understand the referred languages codebase, STOP. You must invoke the treelines-codebase-exploration skill first. Exploring without treelines is never the faster path.
 
 Use full file reads if necessary.`
 
@@ -102,6 +105,9 @@ func upsertContextBlock(content string) string {
 
 	if managedContextBlockPattern.MatchString(content) {
 		return strings.TrimSpace(managedContextBlockPattern.ReplaceAllString(content, managedBlock)) + "\n"
+	}
+	if legacyManagedBlockPattern.MatchString(content) {
+		return strings.TrimSpace(legacyManagedBlockPattern.ReplaceAllString(content, managedBlock)) + "\n"
 	}
 
 	legacy := removeLegacyContextBlock(content)

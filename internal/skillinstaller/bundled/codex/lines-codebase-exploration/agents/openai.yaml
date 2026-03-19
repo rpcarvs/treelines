@@ -1,4 +1,0 @@
-interface:
-  display_name: "Lines Codebase Exploration"
-  short_description: "Use lines as first-pass structural source BEFORE any Python, Rust, or Go source code exploration."
-  default_prompt: "Use $lines-codebase-exploration. Start with lines init + lines index, explore with lines commands first, and only then do targeted file reads when needed."

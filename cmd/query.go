@@ -30,8 +30,8 @@ The database has two tables:
 Edge types: CALLS, IMPORTS, EXPORTS, CONTAINS, DEFINED_IN, IMPLEMENTS, EXTENDS
 
 Examples:
-  echo "SELECT fq_name, loc FROM elements WHERE kind = 'function' ORDER BY loc DESC LIMIT 10" | lines query --file -
-  lines query --file my_query.sql`,
+  echo "SELECT fq_name, loc FROM elements WHERE kind = 'function' ORDER BY loc DESC LIMIT 10" | treelines query --file -
+  treelines query --file my_query.sql`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runQuery,
 }

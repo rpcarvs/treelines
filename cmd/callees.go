@@ -11,7 +11,7 @@ var calleesCmd = &cobra.Command{
 	Short: "List functions called by a code element",
 	Long: `List all functions and methods that the given element calls.
 Requires a fully qualified name (e.g., "cmd.runIndex").
-Use "lines search" to discover FQNames.`,
+Use "treelines search" to discover FQNames.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runCallees,
 }

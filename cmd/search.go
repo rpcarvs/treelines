@@ -17,7 +17,7 @@ var searchCmd = &cobra.Command{
 	Long: `Search for code elements whose name or FQName contains the given
 substring. Use --kind to narrow results to a specific element kind.
 
-This command is symbol-oriented. For module export surface, use "lines exports".
+This command is symbol-oriented. For module export surface, use "treelines exports".
 
 Compatibility fallback: searching for "__all__" also reports modules with
 static EXPORTS edges derived from Python __all__ assignments.

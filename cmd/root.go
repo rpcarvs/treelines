@@ -15,7 +15,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "lines",
+	Use:   "treelines",
 	Short: "Code intelligence powered by Tree-sitter and graph queries",
 	Long: `Treelines parses codebases using Tree-sitter, extracts code elements
 (functions, methods, classes, structs, interfaces, traits, enums, impl blocks, modules), and stores them in a

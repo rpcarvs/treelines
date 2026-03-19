@@ -13,7 +13,7 @@ func newClaudeSkillCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "claude-skill",
-		Short: "Install the lines-codebase-exploration skill for Claude",
+		Short: "Install the treelines-codebase-exploration skill for Claude",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			installedPath, err := skillinstaller.InstallClaudeSkill(force)

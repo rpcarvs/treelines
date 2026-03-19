@@ -31,20 +31,20 @@ go install github.com/rpcarvs/treelines@latest
 
 # Or clone the repo and install locally:
 go install .
-# If `lines` is not found, add GOPATH/bin to PATH (Bash example):
+# If `treelines` is not found, add GOPATH/bin to PATH (Bash example):
 grep -q '$(go env GOPATH)/bin' ~/.bashrc || echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
 source ~/.bashrc
-lines init
-lines index
-lines stats
+treelines init
+treelines index
+treelines stats
 ```
 
 ```bash
 go install .
 #
-lines init
-lines index
-lines stats
+treelines init
+treelines index
+treelines stats
 ```
 
 What this does:
@@ -53,42 +53,42 @@ What this does:
 - Builds a full code snapshot
 
 Notes:
-- `lines init` is idempotent and does not wipe indexed data
-- `lines index` performs full snapshot replacement (removed code is removed from DB)
+- `treelines init` is idempotent and does not wipe indexed data
+- `treelines index` performs full snapshot replacement (removed code is removed from DB)
 - Add `.treelines/` to `.gitignore`
 
 ## Agent Workflow
 
 Recommended deterministic workflow when agents do not auto-commit:
 
-1. `lines init`
-2. `lines index` before coding starts
-3. Use `lines` commands first for exploration and narrowing scope
-4. Run `lines index` again when you need a fresh post-edit snapshot
+1. `treelines init`
+2. `treelines index` before coding starts
+3. Use `treelines` commands first for exploration and narrowing scope
+4. Run `treelines index` again when you need a fresh post-edit snapshot
 
-For git commit-based workflows, `lines update` can be used in step 4 instead. It uses the last indexed git commit to update the database for only modified files instead of full index.
+For git commit-based workflows, `treelines update` can be used in step 4 instead. It uses the last indexed git commit to update the database for only modified files instead of full index.
 
-Alternatively, a `lines serve` creates a "daemon" that constantly update modified files. Probably only interesting for large codebases.
+Alternatively, a `treelines serve` creates a "daemon" that constantly update modified files. Probably only interesting for large codebases.
 
 ## Install Skill and Context
 
 Install bundled skill:
 
 ```bash
-lines install codex-skill
-lines install claude-skill
+treelines install codex-skill
+treelines install claude-skill
 ```
 
 Install or refresh managed context policy block:
 
 ```bash
 # global
-lines install codex-context
-lines install claude-context
+treelines install codex-context
+treelines install claude-context
 
 # project-local
-lines install codex-context --local
-lines install claude-context --local
+treelines install codex-context --local
+treelines install claude-context --local
 ```
 
 Context targets:
@@ -103,77 +103,77 @@ Context blocks are managed and replaced by internal markers on re-run.
 
 | Command | Purpose |
 |---|---|
-| `lines init` | Create `.treelines/` and initialize schema |
-| `lines index` | Full re-index snapshot |
-| `lines update` | Incremental re-index from `.treelines/last_commit` to git `HEAD` |
-| `lines serve` | Watch file changes and incrementally re-index (filesystem-event based) |
-| `lines stats` | Counts by kind, language, and edge type |
+| `treelines init` | Create `.treelines/` and initialize schema |
+| `treelines index` | Full re-index snapshot |
+| `treelines update` | Incremental re-index from `.treelines/last_commit` to git `HEAD` |
+| `treelines serve` | Watch file changes and incrementally re-index (filesystem-event based) |
+| `treelines stats` | Counts by kind, language, and edge type |
 
 ### Discovery
 
 | Command | Purpose |
 |---|---|
-| `lines search <substring>` | Symbol-oriented name/FQName search |
-| `lines element <name>` | FQName > exact short name > substring lookup |
-| `lines list <name\|.\|*>` | Contained elements; `.` or `*` means repo-wide scope |
+| `treelines search <substring>` | Symbol-oriented name/FQName search |
+| `treelines element <name>` | FQName > exact short name > substring lookup |
+| `treelines list <name\|.\|*>` | Contained elements; `.` or `*` means repo-wide scope |
 
 ### Relationships
 
 | Command | Purpose |
 |---|---|
-| `lines callees <fq_name>` | Outgoing calls from an element |
-| `lines uses <fq_name>` | Incoming callers of an element |
-| `lines imports [module]` | Internal import dependencies |
-| `lines exports [module]` | Export surface (Python `__all__`, Go/Rust public symbols) |
-| `lines module-graph [module]` | Module summary, or repo overview without args |
+| `treelines callees <fq_name>` | Outgoing calls from an element |
+| `treelines uses <fq_name>` | Incoming callers of an element |
+| `treelines imports [module]` | Internal import dependencies |
+| `treelines exports [module]` | Export surface (Python `__all__`, Go/Rust public symbols) |
+| `treelines module-graph [module]` | Module summary, or repo overview without args |
 
 ### Advanced
 
 | Command | Purpose |
 |---|---|
-| `lines query <sql>` | Execute raw SQL |
-| `lines query --file <path>` | Read SQL from file |
-| `lines query --file -` | Read SQL from stdin |
-| `lines query --schema` | Print schema and sample queries |
+| `treelines query <sql>` | Execute raw SQL |
+| `treelines query --file <path>` | Read SQL from file |
+| `treelines query --file -` | Read SQL from stdin |
+| `treelines query --schema` | Print schema and sample queries |
 
 ### Installers
 
 | Command | Purpose |
 |---|---|
-| `lines install codex-skill` | Install bundled Codex skill |
-| `lines install claude-skill` | Install bundled Claude skill |
-| `lines install codex-context [--local]` | Install/update Codex context policy block |
-| `lines install claude-context [--local]` | Install/update Claude context policy block |
+| `treelines install codex-skill` | Install bundled Codex skill |
+| `treelines install claude-skill` | Install bundled Claude skill |
+| `treelines install codex-context [--local]` | Install/update Codex context policy block |
+| `treelines install claude-context [--local]` | Install/update Claude context policy block |
 
 Global flags:
 `--json`, `--no-body`, `--verbose`, `--quiet`, `--db <path>`
 
-Use `lines --help` and `lines <command> --help` for command details.
+Use `treelines --help` and `treelines <command> --help` for command details.
 
 ## Examples
 
 ```bash
 # Discovery
-lines stats
-lines list . --kind module
-lines search "Scanner"
-lines element "graph.SQLiteStore.Open"
+treelines stats
+treelines list . --kind module
+treelines search "Scanner"
+treelines element "graph.SQLiteStore.Open"
 
 # Relationships
-lines callees "cmd.runIndex"
-lines uses "graph.SQLiteStore.Open"
-lines imports "cmd"
-lines module-graph
-lines module-graph "cmd"
+treelines callees "cmd.runIndex"
+treelines uses "graph.SQLiteStore.Open"
+treelines imports "cmd"
+treelines module-graph
+treelines module-graph "cmd"
 
 # Export surface
-lines exports
-lines exports "crate::ml"
-lines exports "__init__" --source
+treelines exports
+treelines exports "crate::ml"
+treelines exports "__init__" --source
 
 # SQL
-lines query --schema
-echo "SELECT kind, COUNT(*) AS c FROM elements GROUP BY kind ORDER BY c DESC" | lines query --file -
+treelines query --schema
+echo "SELECT kind, COUNT(*) AS c FROM elements GROUP BY kind ORDER BY c DESC" | treelines query --file -
 ```
 
 ## Data Model

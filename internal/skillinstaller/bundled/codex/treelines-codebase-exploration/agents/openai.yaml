@@ -1,0 +1,4 @@
+interface:
+  display_name: "Treelines Codebase Exploration"
+  short_description: "Use treelines as first-pass structural source BEFORE any Python, Rust, or Go source code exploration."
+  default_prompt: "Use $treelines-codebase-exploration. Start with treelines init + treelines index, explore with treelines commands first, and only then do targeted file reads when needed."

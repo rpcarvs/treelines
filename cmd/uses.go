@@ -11,7 +11,7 @@ var usesCmd = &cobra.Command{
 	Short: "List callers of a code element",
 	Long: `List all functions and methods that call the given element.
 Requires a fully qualified name (e.g., "graph.SQLiteStore.Open").
-Use "lines search" to discover FQNames.`,
+Use "treelines search" to discover FQNames.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runUses,
 }

@@ -20,7 +20,7 @@ var updateCmd = &cobra.Command{
 	Long: `Re-index files changed between .treelines/last_commit and git HEAD.
 
 This is commit-marker based and does not track unstaged or uncommitted edits.
-Run "lines index" first to create the initial indexed git commit marker snapshot.`,
+Run "treelines index" first to create the initial indexed git commit marker snapshot.`,
 	RunE: runUpdate,
 }
 
@@ -41,13 +41,13 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	defer releaseWriterLock()
 
 	if !scanner.IsGitRepo(root) {
-		return fmt.Errorf("not a git repository; use 'lines index' for a full index")
+		return fmt.Errorf("not a git repository; use 'treelines index' for a full index")
 	}
 
 	lastCommitPath := filepath.Join(root, ".treelines", "last_commit")
 	data, err := os.ReadFile(lastCommitPath)
 	if err != nil {
-		return fmt.Errorf("no previous index found; run 'lines index' first")
+		return fmt.Errorf("no previous index found; run 'treelines index' first")
 	}
 	lastCommit := strings.TrimSpace(string(data))
 

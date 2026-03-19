@@ -104,6 +104,42 @@ func TestInstallCodexContextReplacesManagedBlock(t *testing.T) {
 	}
 }
 
+func TestInstallCodexContextReplacesLegacyManagedBlockMarkers(t *testing.T) {
+	tmp := t.TempDir()
+	codexHome := filepath.Join(tmp, "codex-home")
+	t.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("HOME", tmp)
+
+	path := filepath.Join(codexHome, "AGENTS.md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	old := "# Header\n\n" +
+		legacyBlockBegin + "\nold body\n" + legacyBlockEnd + "\n\nTail\n"
+	if err := os.WriteFile(path, []byte(old), 0o644); err != nil {
+		t.Fatalf("seed file: %v", err)
+	}
+
+	if _, err := InstallCodexContext(); err != nil {
+		t.Fatalf("install codex context: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read context: %v", err)
+	}
+	content := string(data)
+	if strings.Contains(content, "old body") {
+		t.Fatalf("old block content not replaced:\n%s", content)
+	}
+	if strings.Contains(content, legacyBlockBegin) || strings.Contains(content, legacyBlockEnd) {
+		t.Fatalf("legacy markers should be replaced:\n%s", content)
+	}
+	if strings.Count(content, contextBlockBegin) != 1 || strings.Count(content, contextBlockEnd) != 1 {
+		t.Fatalf("expected exactly one managed block:\n%s", content)
+	}
+}
+
 func TestInstallClaudeContextReplacesLegacyBlock(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
