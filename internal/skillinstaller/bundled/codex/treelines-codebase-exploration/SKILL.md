@@ -17,14 +17,13 @@ Use `treelines` first for any Python, Rust, or Go source code exploration before
 
 Run this sequence at the start of any session involving Python, Rust, or Go codebases.
 
-1. `treelines init`
-2. `treelines index` before work starts
-3. Use `treelines` commands for exploration and dependency mapping:
+1. `treelines index` before work starts
+2. Use `treelines` commands for exploration and dependency mapping:
   - treelines stats
   - treelines list . --kind module
   - treelines search <entry symbol>
   - treelines callees <entry symbol> or treelines uses <symbol>
-4. Run `treelines index` again when a fresh post-edit snapshot is needed
+3. Run `treelines index` again when a fresh post-edit snapshot is needed
 
 Do not use `update` or `serve` in this workflow.
 
