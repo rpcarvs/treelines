@@ -12,12 +12,13 @@ Use `treelines` first for any Python, Rust, or Go source code exploration before
 - Start with `treelines --help` when command usage is uncertain.
 - Query structure first, then read only files that are still needed.
 - If findings are insufficient, do targeted file reads and return to `treelines` queries.
+- When running `treelines index` always wait for it to finish. Never run other `treelines` commands in parallel to it.
 
 ## Required Workflow (No serve)
 
 Run this sequence at the start of any session involving Python, Rust, or Go codebases.
 
-1. `treelines index` before work starts
+1. `treelines index` before work starts. NEVER RUN THIS IN PARALLEL, WAIT FOR IT TO FINISH BEFORE RUNNING OTHER STEPS.
 2. Use `treelines` commands for exploration and dependency mapping:
   - treelines stats
   - treelines list . --kind module
