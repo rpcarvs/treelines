@@ -9,10 +9,11 @@ import (
 )
 
 const skillDirName = "treelines-codebase-exploration"
+const bundledSkillPath = "bundled/treelines-codebase-exploration/SKILL.md"
 
 // bundledFiles contains built-in skill files to install for supported tools.
 //
-//go:embed bundled/**
+//go:embed bundled/treelines-codebase-exploration/SKILL.md
 var bundledFiles embed.FS
 
 // InstallCodexSkill installs the bundled treelines skill into Codex skills directory.
@@ -22,10 +23,7 @@ func InstallCodexSkill(force bool) (string, error) {
 		return "", err
 	}
 
-	files := map[string]string{
-		"SKILL.md":           "bundled/codex/treelines-codebase-exploration/SKILL.md",
-		"agents/openai.yaml": "bundled/codex/treelines-codebase-exploration/agents/openai.yaml",
-	}
+	files := map[string]string{"SKILL.md": bundledSkillPath}
 
 	return installBundledSkill(root, files, force)
 }
@@ -37,9 +35,7 @@ func InstallClaudeSkill(force bool) (string, error) {
 		return "", err
 	}
 
-	files := map[string]string{
-		"SKILL.md": "bundled/claude/treelines-codebase-exploration/SKILL.md",
-	}
+	files := map[string]string{"SKILL.md": bundledSkillPath}
 
 	return installBundledSkill(root, files, force)
 }

@@ -36,6 +36,8 @@ grep -q '$(go env GOPATH)/bin' ~/.bashrc || echo 'export PATH="$PATH:$(go env GO
 source ~/.bashrc
 treelines init
 treelines index
+treelines onboard
+treelines overview
 treelines stats
 ```
 
@@ -63,8 +65,10 @@ Recommended deterministic workflow when agents do not auto-commit:
 
 1. `treelines init`
 2. `treelines index` before coding starts
-3. Use `treelines` commands first for exploration and narrowing scope
-4. Run `treelines index` again when you need a fresh post-edit snapshot
+3. Use `treelines onboard` or `treelines recap` when the workflow is not fresh in context
+4. Start with `treelines overview` for a compact first-pass map
+5. Use targeted `treelines` commands for exploration and narrowing scope
+6. Run `treelines index` again when you need a fresh post-edit snapshot
 
 For git commit-based workflows, `treelines update` can be used in step 4 instead. It uses the last indexed git commit to update the database for only modified files instead of full index.
 
@@ -108,6 +112,9 @@ Context blocks are managed and replaced by internal markers on re-run.
 | `treelines update` | Incremental re-index from `.treelines/last_commit` to git `HEAD` |
 | `treelines serve` | Watch file changes and incrementally re-index (filesystem-event based) |
 | `treelines stats` | Counts by kind, language, and edge type |
+| `treelines overview [--depth 1\|2\|3]` | Compact first-pass codebase map optimized for agents |
+| `treelines onboard` | Very short agent workflow reminder |
+| `treelines recap` | Longer command and workflow recap |
 
 ### Discovery
 
@@ -155,6 +162,8 @@ Use `treelines --help` and `treelines <command> --help` for command details.
 ```bash
 # Discovery
 treelines stats
+treelines onboard
+treelines overview
 treelines list . --kind module
 treelines search "Scanner"
 treelines element "graph.SQLiteStore.Open"

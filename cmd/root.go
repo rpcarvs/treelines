@@ -22,8 +22,10 @@ var rootCmd = &cobra.Command{
 local SQLite database for queryable code intelligence.
 
 Use symbol commands (element/search/list/uses/callees) for structural graph work.
+Use overview for a compact first-pass map of an unknown codebase.
 Use imports for internal module dependency surface.
-Use exports for language-aware module export surface.`,
+Use exports for language-aware module export surface.
+Use onboard or recap for agent workflow reminders.`,
 }
 
 // Execute runs the root cobra command and exits on error.
