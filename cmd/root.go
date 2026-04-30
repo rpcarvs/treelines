@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"os"
 
+	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 )
 
@@ -28,10 +30,9 @@ Use exports for language-aware module export surface.
 Use onboard or recap for agent workflow reminders.`,
 }
 
-// Execute runs the root cobra command and exits on error.
+// Execute runs the root cobra command through FANG and exits on error.
 func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
+	if err := fang.Execute(context.Background(), rootCmd); err != nil {
 		os.Exit(1)
 	}
 }

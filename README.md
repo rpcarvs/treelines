@@ -29,6 +29,9 @@ It parses source files with Tree-sitter, stores symbols and relationships in SQL
 # Install directly from GitHub:
 go install github.com/rpcarvs/treelines@latest
 
+# Show the installed module version when built from a tagged Go module:
+treelines --version
+
 # Or clone the repo and install locally:
 go install .
 # If `treelines` is not found, add GOPATH/bin to PATH (Bash example):
@@ -57,6 +60,8 @@ What this does:
 Notes:
 - `treelines init` is idempotent and does not wipe indexed data
 - `treelines index` performs full snapshot replacement (removed code is removed from DB)
+- `treelines -v` and `treelines --version` report Go module version metadata for tagged module installs
+- Local source builds may report `unknown (built from source)`
 - Add `.treelines/` to `.gitignore`
 
 ## Agent Workflow
@@ -153,7 +158,7 @@ Context blocks are managed and replaced by internal markers on re-run.
 | `treelines install claude-context [--local]` | Install/update Claude context policy block |
 
 Global flags:
-`--json`, `--no-body`, `--verbose`, `--quiet`, `--db <path>`
+`--json`, `--no-body`, `--verbose`, `--quiet`, `--db <path>`, `-v`, `--version`
 
 Use `treelines --help` and `treelines <command> --help` for command details.
 
