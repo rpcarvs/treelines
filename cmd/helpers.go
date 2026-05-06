@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -13,13 +14,30 @@ import (
 	"github.com/rpcarvs/treelines/internal/model"
 )
 
-// resolveRoot returns the project root directory.
+// resolveRoot returns the Git repository root for project-scoped commands.
 func resolveRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("get working directory: %w", err)
 	}
-	return dir, nil
+	return gitRootDir(dir)
+}
+
+// gitRootDir returns the absolute Git top-level directory for a path.
+func gitRootDir(dir string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	cmd.Dir = dir
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("treelines requires a Git repository. Run `git init` first")
+	}
+
+	root := strings.TrimSpace(string(output))
+	if root == "" {
+		return "", fmt.Errorf("git repository root was empty")
+	}
+	return root, nil
 }
 
 // dbPath returns the database path, using the flag or default.

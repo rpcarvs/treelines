@@ -31,37 +31,10 @@ Red flag: If you're about to Explore or use Read/Glob/Grep to understand the ref
 
 Use full file reads if necessary.`
 
-// InstallCodexContext creates or updates the global Codex context policy block.
-func InstallCodexContext() (string, error) {
-	path, err := codexContextPath()
-	if err != nil {
-		return "", err
-	}
-	if err := InstallContextAtPath(path); err != nil {
-		return "", err
-	}
-	return path, nil
-}
+const claudeLocalPointer = "See [AGENTS.md](./AGENTS.md)\n"
 
-// InstallClaudeContext creates or updates the global Claude context policy block.
-func InstallClaudeContext() (string, error) {
-	path, err := claudeContextPath()
-	if err != nil {
-		return "", err
-	}
-	if err := InstallContextAtPath(path); err != nil {
-		return "", err
-	}
-	return path, nil
-}
-
-// InstallContextAtPath creates or updates the managed policy block at a given path.
-func InstallContextAtPath(path string) error {
-	return installManagedContext(path)
-}
-
-// codexContextPath resolves the global Codex AGENTS.md path.
-func codexContextPath() (string, error) {
+// CodexContextPath resolves the global Codex AGENTS.md path.
+func CodexContextPath() (string, error) {
 	codexHome := os.Getenv("CODEX_HOME")
 	if codexHome == "" {
 		home, err := os.UserHomeDir()
@@ -73,49 +46,84 @@ func codexContextPath() (string, error) {
 	return filepath.Join(codexHome, "AGENTS.md"), nil
 }
 
-// claudeContextPath resolves the global Claude CLAUDE.md path.
-func claudeContextPath() (string, error) {
+// ClaudeContextPath resolves the global Claude CLAUDE.md path.
+func ClaudeContextPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("resolve home directory: %w", err)
+		return "", err
 	}
 	return filepath.Join(home, ".claude", "CLAUDE.md"), nil
 }
 
-// installManagedContext writes the managed policy block into a target context file.
-func installManagedContext(path string) error {
+// InstallCodexContext creates or updates the global Codex context policy block.
+func InstallCodexContext() (string, string, error) {
+	path, err := CodexContextPath()
+	if err != nil {
+		return "", "", err
+	}
+	action, err := InstallContextAtPath(path)
+	if err != nil {
+		return "", "", err
+	}
+	return path, action, nil
+}
+
+// InstallClaudeContext creates or updates the global Claude context policy block.
+func InstallClaudeContext() (string, string, error) {
+	path, err := ClaudeContextPath()
+	if err != nil {
+		return "", "", err
+	}
+	action, err := InstallContextAtPath(path)
+	if err != nil {
+		return "", "", err
+	}
+	return path, action, nil
+}
+
+// InstallContextAtPath creates or updates the managed policy block at a given path.
+func InstallContextAtPath(path string) (string, error) {
 	existing, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("read context file %s: %w", path, err)
+		return "", fmt.Errorf("read context file %s: %w", path, err)
 	}
 
-	updated := upsertContextBlock(string(existing))
+	updated, action := upsertContextBlock(string(existing))
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create context directory %s: %w", filepath.Dir(path), err)
+		return "", fmt.Errorf("create context directory %s: %w", filepath.Dir(path), err)
 	}
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
-		return fmt.Errorf("write context file %s: %w", path, err)
+		return "", fmt.Errorf("write context file %s: %w", path, err)
 	}
-	return nil
+	return action, nil
+}
+
+// InstallClaudePointerAtPath writes the local Claude pointer to AGENTS.md.
+func InstallClaudePointerAtPath(path string) (string, error) {
+	return writeFileIfChanged(path, []byte(claudeLocalPointer), 0o644)
 }
 
 // upsertContextBlock replaces managed/legacy policy blocks and appends the latest block.
-func upsertContextBlock(content string) string {
+func upsertContextBlock(content string) (string, string) {
 	managedBlock := contextBlockBegin + "\n" + mandatoryContextBody + "\n" + contextBlockEnd
 
 	if managedContextBlockPattern.MatchString(content) {
-		return strings.TrimSpace(managedContextBlockPattern.ReplaceAllString(content, managedBlock)) + "\n"
+		replaced := strings.TrimSpace(managedContextBlockPattern.ReplaceAllString(content, managedBlock)) + "\n"
+		if replaced == content {
+			return replaced, "unchanged"
+		}
+		return replaced, "updated"
 	}
 	if legacyManagedBlockPattern.MatchString(content) {
-		return strings.TrimSpace(legacyManagedBlockPattern.ReplaceAllString(content, managedBlock)) + "\n"
+		return strings.TrimSpace(legacyManagedBlockPattern.ReplaceAllString(content, managedBlock)) + "\n", "updated"
 	}
 
 	legacy := removeLegacyContextBlock(content)
 	legacy = strings.TrimRight(legacy, "\n\t ")
 	if legacy == "" {
-		return managedBlock + "\n"
+		return managedBlock + "\n", "appended"
 	}
-	return legacy + "\n\n" + managedBlock + "\n"
+	return legacy + "\n\n" + managedBlock + "\n", "appended"
 }
 
 // removeLegacyContextBlock removes previous unmanaged mandatory block variants.

@@ -12,8 +12,11 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize treelines in the current directory",
-	Long: `Create .treelines/ and initialize the SQLite schema.
+	Short: "Initialize treelines in the current Git repository",
+	Long: `Create .treelines/ at the Git repository root and initialize the SQLite schema.
+
+Treelines commands are repository-scoped. You can run init from any subdirectory
+inside a Git repository and it will initialize the root .treelines/ directory.
 
 This command is idempotent. It does not wipe existing indexed data.
 If .gitignore exists, .treelines/ is appended when missing.`,

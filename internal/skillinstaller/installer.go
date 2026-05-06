@@ -4,6 +4,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -15,6 +16,98 @@ const bundledSkillPath = "bundled/treelines-codebase-exploration/SKILL.md"
 //
 //go:embed bundled/treelines-codebase-exploration/SKILL.md
 var bundledFiles embed.FS
+
+// Provider identifies a supported agent integration target.
+type Provider string
+
+const (
+	ProviderCodex  Provider = "codex"
+	ProviderClaude Provider = "claude"
+)
+
+// InstallOptions configures a provider-level agent installation.
+type InstallOptions struct {
+	Provider  Provider
+	Local     bool
+	LocalRoot string
+	Force     bool
+}
+
+// InstallResult reports all paths touched by a provider install.
+type InstallResult struct {
+	SkillPath           string
+	ContextPath         string
+	ContextAction       string
+	HookPath            string
+	HookAction          string
+	CodexConfigPath     string
+	CodexConfigAction   string
+	ClaudePointerPath   string
+	ClaudePointerAction string
+}
+
+// InstallProvider installs skill, context, and hooks for one supported agent.
+func InstallProvider(options InstallOptions) (InstallResult, error) {
+	if err := validateInstallOptions(options); err != nil {
+		return InstallResult{}, err
+	}
+
+	skillRoot, err := skillsRoot(options)
+	if err != nil {
+		return InstallResult{}, err
+	}
+	contextPath, err := contextPath(options)
+	if err != nil {
+		return InstallResult{}, err
+	}
+	hookPath, err := hookConfigPath(options)
+	if err != nil {
+		return InstallResult{}, err
+	}
+
+	files := map[string]string{"SKILL.md": bundledSkillPath}
+	skillPath, err := installBundledSkill(skillRoot, files, options.Force)
+	if err != nil {
+		return InstallResult{}, err
+	}
+	contextAction, err := InstallContextAtPath(contextPath)
+	if err != nil {
+		return InstallResult{}, err
+	}
+	hookAction, err := InstallHookConfigAtPath(hookPath)
+	if err != nil {
+		return InstallResult{}, err
+	}
+
+	result := InstallResult{
+		SkillPath:     skillPath,
+		ContextPath:   contextPath,
+		ContextAction: contextAction,
+		HookPath:      hookPath,
+		HookAction:    hookAction,
+	}
+
+	if options.Provider == ProviderCodex {
+		configPath, action, err := EnsureCodexHooksEnabled(codexConfigPath(options))
+		if err != nil {
+			return InstallResult{}, err
+		}
+		result.CodexConfigPath = configPath
+		result.CodexConfigAction = action
+	}
+
+	if options.Provider == ProviderClaude && options.Local {
+		pointerPath := filepath.Join(options.LocalRoot, "CLAUDE.md")
+		action, err := InstallClaudePointerAtPath(pointerPath)
+		if err != nil {
+			return InstallResult{}, err
+		}
+		result.ClaudePointerPath = pointerPath
+		result.ClaudePointerAction = action
+	}
+
+	return result, nil
+}
 
 // InstallCodexSkill installs the bundled treelines skill into Codex skills directory.
 func InstallCodexSkill(force bool) (string, error) {
@@ -62,6 +155,101 @@ func claudeSkillsRoot() (string, error) {
 	return filepath.Join(home, ".claude", "skills"), nil
 }
 
+// validateInstallOptions verifies provider and scope before writing files.
+func validateInstallOptions(options InstallOptions) error {
+	switch options.Provider {
+	case ProviderCodex, ProviderClaude:
+	default:
+		return fmt.Errorf("unsupported install provider %q", options.Provider)
+	}
+	if options.Local && options.LocalRoot == "" {
+		return fmt.Errorf("local install requires repository root")
+	}
+	return nil
+}
+
+// skillsRoot resolves the target skill root for a provider install.
+func skillsRoot(options InstallOptions) (string, error) {
+	if options.Local {
+		switch options.Provider {
+		case ProviderCodex:
+			return filepath.Join(options.LocalRoot, ".codex", "skills"), nil
+		case ProviderClaude:
+			return filepath.Join(options.LocalRoot, ".claude", "skills"), nil
+		}
+	}
+
+	switch options.Provider {
+	case ProviderCodex:
+		return codexSkillsRoot()
+	case ProviderClaude:
+		return claudeSkillsRoot()
+	default:
+		return "", fmt.Errorf("unsupported install provider %q", options.Provider)
+	}
+}
+
+// contextPath resolves where the managed codebase exploration context is installed.
+func contextPath(options InstallOptions) (string, error) {
+	if options.Local {
+		return filepath.Join(options.LocalRoot, "AGENTS.md"), nil
+	}
+
+	switch options.Provider {
+	case ProviderCodex:
+		return CodexContextPath()
+	case ProviderClaude:
+		return ClaudeContextPath()
+	default:
+		return "", fmt.Errorf("unsupported install provider %q", options.Provider)
+	}
+}
+
+// hookConfigPath resolves where provider hook configuration is installed.
+func hookConfigPath(options InstallOptions) (string, error) {
+	if options.Local {
+		switch options.Provider {
+		case ProviderCodex:
+			return filepath.Join(options.LocalRoot, ".codex", "hooks.json"), nil
+		case ProviderClaude:
+			return filepath.Join(options.LocalRoot, ".claude", "settings.json"), nil
+		}
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	switch options.Provider {
+	case ProviderCodex:
+		codexHome := os.Getenv("CODEX_HOME")
+		if codexHome == "" {
+			codexHome = filepath.Join(home, ".codex")
+		}
+		return filepath.Join(codexHome, "hooks.json"), nil
+	case ProviderClaude:
+		return filepath.Join(home, ".claude", "settings.json"), nil
+	default:
+		return "", fmt.Errorf("unsupported install provider %q", options.Provider)
+	}
+}
+
+// codexConfigPath resolves the Codex config.toml path for hook feature flags.
+func codexConfigPath(options InstallOptions) string {
+	if options.Local {
+		return filepath.Join(options.LocalRoot, ".codex", "config.toml")
+	}
+	codexHome := os.Getenv("CODEX_HOME")
+	if codexHome == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return filepath.Join(".codex", "config.toml")
+		}
+		codexHome = filepath.Join(home, ".codex")
+	}
+	return filepath.Join(codexHome, "config.toml")
+}
+
 // installBundledSkill writes embedded files into the destination skill directory.
 func installBundledSkill(root string, files map[string]string, force bool) (string, error) {
 	target := filepath.Join(root, skillDirName)
@@ -90,14 +278,11 @@ func installBundledSkill(root string, files map[string]string, force bool) (stri
 // ensureTarget verifies destination state and removes existing data when forced.
 func ensureTarget(target string, force bool) error {
 	_, err := os.Stat(target)
-	if err == nil {
-		if !force {
-			return fmt.Errorf("skill already exists at %s (use --force to overwrite)", target)
-		}
+	if err == nil && force {
 		if err := os.RemoveAll(target); err != nil {
 			return fmt.Errorf("remove existing skill at %s: %w", target, err)
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("check target %s: %w", target, err)
 	}
 
@@ -105,4 +290,25 @@ func ensureTarget(target string, force bool) error {
 		return fmt.Errorf("create skill directory %s: %w", target, err)
 	}
 	return nil
+}
+
+// writeFileIfChanged writes content and reports whether the file changed.
+func writeFileIfChanged(path string, content []byte, mode fs.FileMode) (string, error) {
+	existing, err := os.ReadFile(path)
+	if err == nil && string(existing) == string(content) {
+		return "unchanged", nil
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", fmt.Errorf("create directory %s: %w", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, content, mode); err != nil {
+		return "", fmt.Errorf("write %s: %w", path, err)
+	}
+	if os.IsNotExist(err) {
+		return "created", nil
+	}
+	return "updated", nil
 }

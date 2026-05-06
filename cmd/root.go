@@ -23,6 +23,9 @@ var rootCmd = &cobra.Command{
 (functions, methods, classes, structs, interfaces, traits, enums, impl blocks, modules), and stores them in a
 local SQLite database for queryable code intelligence.
 
+Treelines commands are scoped to the current Git repository root and can be run
+from any subdirectory inside that repository.
+
 Use symbol commands (element/search/list/uses/callees) for structural graph work.
 Use overview for a compact first-pass map of an unknown codebase.
 Use imports for internal module dependency surface.
@@ -38,7 +41,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&flagDB, "db", "", "Database path (default: .treelines/codestore.db)")
+	rootCmd.PersistentFlags().StringVar(&flagDB, "db", "", "Database path (default: <git-root>/.treelines/codestore.db)")
 	rootCmd.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVar(&flagQuiet, "quiet", false, "Suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVar(&flagNoBody, "no-body", false, "Strip body field from output")

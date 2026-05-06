@@ -11,6 +11,7 @@ Use `treelines` before exploring Python, Rust, or Go source code.
 
 - Do not start codebase understanding with file reads, broad grep, glob scans, or directory walks.
 - Use `treelines` as the first structural source, then read only the files that still matter.
+- Treelines resolves the Git repository root, so commands can run from any subdirectory.
 - Direct file reads are allowed after `treelines` narrows the scope or when behavior cannot be represented structurally.
 - If command usage is uncertain, use `treelines --help` or `treelines <command> --help`.
 - Use `treelines recap` only when you need a fuller workflow or command reminder.
@@ -72,6 +73,7 @@ Use this pattern to minimize tokens and avoid blind reads.
 
 ## Freshness Rules
 
+- Treelines requires a Git repository for project-scoped commands.
 - At session start, assume the database may be stale and run `treelines index`.
 - After code edits, assume relationships may be stale until `treelines index` runs again.
 - If results contradict visible source, rerun `treelines index` once before concluding the graph is wrong.
@@ -127,12 +129,6 @@ Advanced:
 - `treelines stats`
 - `treelines query --schema`
 - `treelines query "<sql>"`
-
-Install:
-- `treelines install codex-skill`
-- `treelines install claude-skill`
-- `treelines install codex-context`
-- `treelines install claude-context`
 
 ## Output Rules
 

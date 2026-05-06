@@ -13,7 +13,7 @@ func TestInstallCodexContextCreatesManagedBlock(t *testing.T) {
 	t.Setenv("CODEX_HOME", codexHome)
 	t.Setenv("HOME", tmp)
 
-	path, err := InstallCodexContext()
+	path, _, err := InstallCodexContext()
 	if err != nil {
 		t.Fatalf("install codex context: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestInstallClaudeContextAppendsIntoExistingFile(t *testing.T) {
 		t.Fatalf("seed file: %v", err)
 	}
 
-	installedPath, err := InstallClaudeContext()
+	installedPath, _, err := InstallClaudeContext()
 	if err != nil {
 		t.Fatalf("install claude context: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestInstallCodexContextReplacesManagedBlock(t *testing.T) {
 		t.Fatalf("seed file: %v", err)
 	}
 
-	if _, err := InstallCodexContext(); err != nil {
+	if _, _, err := InstallCodexContext(); err != nil {
 		t.Fatalf("install codex context: %v", err)
 	}
 
@@ -104,6 +104,24 @@ func TestInstallCodexContextReplacesManagedBlock(t *testing.T) {
 	}
 }
 
+func TestInstallCodexContextReportsUnchangedForCurrentBlock(t *testing.T) {
+	tmp := t.TempDir()
+	codexHome := filepath.Join(tmp, "codex-home")
+	t.Setenv("CODEX_HOME", codexHome)
+	t.Setenv("HOME", tmp)
+
+	if _, _, err := InstallCodexContext(); err != nil {
+		t.Fatalf("first install codex context: %v", err)
+	}
+	_, action, err := InstallCodexContext()
+	if err != nil {
+		t.Fatalf("second install codex context: %v", err)
+	}
+	if action != "unchanged" {
+		t.Fatalf("expected unchanged action, got %q", action)
+	}
+}
+
 func TestInstallCodexContextReplacesLegacyManagedBlockMarkers(t *testing.T) {
 	tmp := t.TempDir()
 	codexHome := filepath.Join(tmp, "codex-home")
@@ -120,7 +138,7 @@ func TestInstallCodexContextReplacesLegacyManagedBlockMarkers(t *testing.T) {
 		t.Fatalf("seed file: %v", err)
 	}
 
-	if _, err := InstallCodexContext(); err != nil {
+	if _, _, err := InstallCodexContext(); err != nil {
 		t.Fatalf("install codex context: %v", err)
 	}
 
@@ -161,7 +179,7 @@ Use full file reads if necessary.
 		t.Fatalf("seed file: %v", err)
 	}
 
-	if _, err := InstallClaudeContext(); err != nil {
+	if _, _, err := InstallClaudeContext(); err != nil {
 		t.Fatalf("install claude context: %v", err)
 	}
 
@@ -202,7 +220,7 @@ still here
 		t.Fatalf("seed file: %v", err)
 	}
 
-	if _, err := InstallClaudeContext(); err != nil {
+	if _, _, err := InstallClaudeContext(); err != nil {
 		t.Fatalf("install claude context: %v", err)
 	}
 
@@ -226,7 +244,7 @@ func TestInstallContextAtPathCreatesTargetFile(t *testing.T) {
 	tmp := t.TempDir()
 	path := filepath.Join(tmp, "project", "AGENTS.md")
 
-	if err := InstallContextAtPath(path); err != nil {
+	if _, err := InstallContextAtPath(path); err != nil {
 		t.Fatalf("install context at path: %v", err)
 	}
 

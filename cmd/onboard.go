@@ -5,10 +5,11 @@ import "github.com/spf13/cobra"
 const onboardText = "## Codebase Exploration\n" +
 	"\n" +
 	"This project can be explored with **treelines** before reading source files.\n" +
+	"Treelines resolves the current Git repository root, so commands can run from any subdirectory.\n" +
 	"Run `treelines recap` for a fuller command reference.\n" +
 	"\n" +
 	"**Agent quick start:**\n" +
-	"- `treelines init` - Create `.treelines/` and schema if needed\n" +
+	"- `treelines init` - Create root `.treelines/` and schema if needed\n" +
 	"- `treelines index` - Build a fresh full snapshot\n" +
 	"- `treelines overview` - Get the compact first-pass map\n" +
 	"- `treelines module-graph` - See module relationships\n" +

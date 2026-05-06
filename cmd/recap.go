@@ -7,6 +7,7 @@ const recapText = `treelines recap
 Purpose
   Deterministic codebase exploration for Go, Python, and Rust using Tree-sitter and SQLite.
   Use it as the first source of structure before selective file reads.
+  Commands resolve the current Git repository root and can run from any subdirectory.
 
 Core agent flow
   treelines init
@@ -26,7 +27,7 @@ Overview
   treelines --json overview           Agent-friendly structured output
 
 Setup and lifecycle
-  treelines init                      Create .treelines and initialize schema
+  treelines init                      Create root .treelines and initialize schema
   treelines index                     Full snapshot replacement
   treelines update                    Git commit-based incremental update
   treelines serve                     Filesystem watcher for ongoing local changes
@@ -52,6 +53,13 @@ SQL and automation
   treelines query --file <path>       Run SQL from a file
   treelines --json <command>          Structured output for agents
   treelines --no-body <command>       Suppress element bodies where applicable
+
+Agent install
+  treelines install codex             Install Codex skill, context, and SessionStart hook
+  treelines install claude            Install Claude skill, context, and SessionStart hook
+  treelines install codex --local     Install into current Git repository
+  treelines install claude --local    Install into current Git repository
+  treelines install codex --force     Clear installed skill directory before reinstalling
 
 Agent rules
   Run treelines index before exploration and wait for it to finish.

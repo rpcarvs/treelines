@@ -8,7 +8,7 @@ It parses source files with Tree-sitter, stores symbols and relationships in SQL
 - [Why Treelines](#why-treelines)
 - [Quick Start](#quick-start)
 - [Agent Workflow](#agent-workflow)
-- [Install Skill and Context](#install-skill-and-context)
+- [Install Agent Integration](#install-agent-integration)
 - [Command Reference](#command-reference)
 - [Examples](#examples)
 - [Data Model](#data-model)
@@ -25,18 +25,31 @@ It parses source files with Tree-sitter, stores symbols and relationships in SQL
 
 ## Quick Start
 
+Install the CLI:
+
 ```bash
-# Install directly from GitHub:
 go install github.com/rpcarvs/treelines@latest
-
-# Show the installed module version when built from a tagged Go module:
 treelines --version
+```
 
-# Or clone the repo and install locally:
+If `treelines` is not found, make sure your Go bin directory is in `PATH`:
+
+```bash
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+For local development from this repository:
+
+```bash
 go install .
-# If `treelines` is not found, add GOPATH/bin to PATH (Bash example):
-grep -q '$(go env GOPATH)/bin' ~/.bashrc || echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
-source ~/.bashrc
+treelines --version
+```
+
+Initialize and index a Git repository:
+
+```bash
+cd /path/to/git/repo
+
 treelines init
 treelines index
 treelines onboard
@@ -44,25 +57,19 @@ treelines overview
 treelines stats
 ```
 
-```bash
-go install .
-#
-treelines init
-treelines index
-treelines stats
-```
-
 What this does:
-- Creates `.treelines/codestore.db`
+- Resolves the Git repository root, even when run from a subdirectory
+- Creates `<git-root>/.treelines/codestore.db`
 - Initializes schema and indexes
 - Builds a full code snapshot
 
 Notes:
+- Treelines requires a Git repository for project-scoped commands
 - `treelines init` is idempotent and does not wipe indexed data
 - `treelines index` performs full snapshot replacement (removed code is removed from DB)
 - `treelines -v` and `treelines --version` report Go module version metadata for tagged module installs
 - Local source builds may report `unknown (built from source)`
-- Add `.treelines/` to `.gitignore`
+- `treelines init` adds `.treelines/` to `.gitignore` when `.gitignore` exists
 
 ## Agent Workflow
 
@@ -77,34 +84,53 @@ Recommended deterministic workflow when agents do not auto-commit:
 
 For git commit-based workflows, `treelines update` can be used in step 4 instead. It uses the last indexed git commit to update the database for only modified files instead of full index.
 
-Alternatively, a `treelines serve` creates a "daemon" that constantly update modified files. Probably only interesting for large codebases.
+Alternatively, `treelines serve` starts a filesystem watcher that keeps the database updated from file-change events. It is usually only needed for large codebases or long-running manual sessions.
 
-## Install Skill and Context
+## Install Agent Integration
 
-Install bundled skill:
-
-```bash
-treelines install codex-skill
-treelines install claude-skill
-```
-
-Install or refresh managed context policy block:
+Treelines can install its agent integration for Codex or Claude:
 
 ```bash
-# global
-treelines install codex-context
-treelines install claude-context
-
-# project-local
-treelines install codex-context --local
-treelines install claude-context --local
+treelines install codex
+treelines install claude
 ```
 
-Context targets:
-- global: `~/.codex/AGENTS.md`, `~/.claude/CLAUDE.md`
-- local: `./AGENTS.md`, `./CLAUDE.md`
+Each provider install:
+- Installs the shared `treelines-codebase-exploration` skill.
+- Adds or updates the managed Treelines context block.
+- Installs a `SessionStart` hook that runs `treelines init && treelines onboard` inside Git repositories.
+- For Codex, enables `codex_hooks` in `config.toml`.
+- Prints all installed or updated paths.
 
-Context blocks are managed and replaced by internal markers on re-run.
+Use `--local` to install into the current Git repository instead of the global agent config:
+
+```bash
+treelines install codex --local
+treelines install claude --local
+```
+
+Use `--force` when you want to clear the existing installed skill directory before reinstalling:
+
+```bash
+treelines install codex --force
+treelines install claude --force
+```
+
+Global targets:
+- Codex skill: `$CODEX_HOME/skills/treelines-codebase-exploration` or `~/.codex/skills/treelines-codebase-exploration`
+- Codex context: `$CODEX_HOME/AGENTS.md` or `~/.codex/AGENTS.md`
+- Codex hooks: `$CODEX_HOME/hooks.json` or `~/.codex/hooks.json`
+- Codex config: `$CODEX_HOME/config.toml` or `~/.codex/config.toml`
+- Claude skill: `~/.claude/skills/treelines-codebase-exploration`
+- Claude context: `~/.claude/CLAUDE.md`
+- Claude hooks: `~/.claude/settings.json`
+
+Local targets:
+- Context block: repo-root `AGENTS.md`
+- Claude pointer: repo-root `CLAUDE.md` containing `See [AGENTS.md](./AGENTS.md)`
+- Skills and hooks: repo-root `.codex/` or `.claude/`
+
+Context blocks are managed with internal markers and replaced on re-run.
 
 ## Command Reference
 
@@ -112,7 +138,7 @@ Context blocks are managed and replaced by internal markers on re-run.
 
 | Command | Purpose |
 |---|---|
-| `treelines init` | Create `.treelines/` and initialize schema |
+| `treelines init` | Create root `.treelines/` and initialize schema |
 | `treelines index` | Full re-index snapshot |
 | `treelines update` | Incremental re-index from `.treelines/last_commit` to git `HEAD` |
 | `treelines serve` | Watch file changes and incrementally re-index (filesystem-event based) |
@@ -152,10 +178,10 @@ Context blocks are managed and replaced by internal markers on re-run.
 
 | Command | Purpose |
 |---|---|
-| `treelines install codex-skill` | Install bundled Codex skill |
-| `treelines install claude-skill` | Install bundled Claude skill |
-| `treelines install codex-context [--local]` | Install/update Codex context policy block |
-| `treelines install claude-context [--local]` | Install/update Claude context policy block |
+| `treelines install codex [--local] [--force]` | Install Codex skill, context, and SessionStart hook |
+| `treelines install claude [--local] [--force]` | Install Claude skill, context, and SessionStart hook |
+
+Project-scoped commands resolve the current Git repository root and can be run from any subdirectory.
 
 Global flags:
 `--json`, `--no-body`, `--verbose`, `--quiet`, `--db <path>`, `-v`, `--version`

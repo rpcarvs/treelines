@@ -1,19 +1,16 @@
 package scanner
 
 import (
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
-// IsGitRepo checks whether a .git directory exists at the given root.
+// IsGitRepo checks whether root is inside a Git work tree.
 func IsGitRepo(root string) bool {
-	info, err := os.Stat(filepath.Join(root, ".git"))
-	if err != nil {
-		return false
-	}
-	return info.IsDir()
+	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
+	cmd.Dir = root
+	out, err := cmd.Output()
+	return err == nil && strings.TrimSpace(string(out)) == "true"
 }
 
 // CurrentCommit returns the HEAD commit hash for the repo at root.
