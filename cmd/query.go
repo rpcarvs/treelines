@@ -106,15 +106,15 @@ func outputQuerySchema() error {
 		})
 	}
 
-	_, _ = fmt.Fprintln(os.Stdout, "Tables:")
-	_, _ = fmt.Fprintln(os.Stdout, "  elements(id, language, kind, name, fq_name, path, start_line, end_line, loc, signature, visibility, docstring, body)")
-	_, _ = fmt.Fprintln(os.Stdout, "  edges(from_id, to_id, type)")
-	_, _ = fmt.Fprintln(os.Stdout, "Edge types:")
-	_, _ = fmt.Fprintln(os.Stdout, "  CALLS, IMPORTS, EXPORTS, CONTAINS, DEFINED_IN, IMPLEMENTS, EXTENDS")
-	_, _ = fmt.Fprintln(os.Stdout, "Sample queries:")
-	_, _ = fmt.Fprintln(os.Stdout, "  SELECT kind, COUNT(*) AS c FROM elements GROUP BY kind ORDER BY c DESC")
-	_, _ = fmt.Fprintln(os.Stdout, "  SELECT language, kind, fq_name, path FROM elements WHERE kind='module' ORDER BY fq_name")
-	_, _ = fmt.Fprintln(os.Stdout, "  SELECT type, COUNT(*) AS c FROM edges GROUP BY type ORDER BY c DESC")
+	_, _ = fmt.Fprintln(stdoutWriter(), "Tables:")
+	_, _ = fmt.Fprintln(stdoutWriter(), "  elements(id, language, kind, name, fq_name, path, start_line, end_line, loc, signature, visibility, docstring, body)")
+	_, _ = fmt.Fprintln(stdoutWriter(), "  edges(from_id, to_id, type)")
+	_, _ = fmt.Fprintln(stdoutWriter(), "Edge types:")
+	_, _ = fmt.Fprintln(stdoutWriter(), "  CALLS, IMPORTS, EXPORTS, CONTAINS, DEFINED_IN, IMPLEMENTS, EXTENDS")
+	_, _ = fmt.Fprintln(stdoutWriter(), "Sample queries:")
+	_, _ = fmt.Fprintln(stdoutWriter(), "  SELECT kind, COUNT(*) AS c FROM elements GROUP BY kind ORDER BY c DESC")
+	_, _ = fmt.Fprintln(stdoutWriter(), "  SELECT language, kind, fq_name, path FROM elements WHERE kind='module' ORDER BY fq_name")
+	_, _ = fmt.Fprintln(stdoutWriter(), "  SELECT type, COUNT(*) AS c FROM edges GROUP BY type ORDER BY c DESC")
 	return nil
 }
 

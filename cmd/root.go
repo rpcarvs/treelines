@@ -41,6 +41,8 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.SetOut(os.Stdout)
+	rootCmd.SetErr(os.Stderr)
 	rootCmd.PersistentFlags().StringVar(&flagDB, "db", "", "Database path (default: <git-root>/.treelines/codestore.db)")
 	rootCmd.PersistentFlags().BoolVar(&flagVerbose, "verbose", false, "Enable verbose output")
 	rootCmd.PersistentFlags().BoolVar(&flagQuiet, "quiet", false, "Suppress non-essential output")

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"text/tabwriter"
 
 	"github.com/rpcarvs/treelines/internal/graph"
@@ -129,24 +128,24 @@ LIMIT %d`, module.ID, limit))
 		})
 	}
 
-	fmt.Printf("Module graph: %s (%s)\n", module.FQName, module.Language)
-	fmt.Printf("Path: %s\n", module.Path)
-	fmt.Printf("Imports: %d | Functions/Methods: %d\n", len(imports), len(funcStats))
+	_, _ = fmt.Fprintf(stdoutWriter(), "Module graph: %s (%s)\n", module.FQName, module.Language)
+	_, _ = fmt.Fprintf(stdoutWriter(), "Path: %s\n", module.Path)
+	_, _ = fmt.Fprintf(stdoutWriter(), "Imports: %d | Functions/Methods: %d\n", len(imports), len(funcStats))
 
-	fmt.Println()
-	fmt.Println("Imports")
+	_, _ = fmt.Fprintln(stdoutWriter())
+	_, _ = fmt.Fprintln(stdoutWriter(), "Imports")
 	if len(imports) == 0 {
-		fmt.Println("  none")
+		_, _ = fmt.Fprintln(stdoutWriter(), "  none")
 	} else {
 		_ = printElementList(imports)
 	}
 
-	fmt.Println()
-	fmt.Println("Functions and Methods")
+	_, _ = fmt.Fprintln(stdoutWriter())
+	_, _ = fmt.Fprintln(stdoutWriter(), "Functions and Methods")
 	if len(funcStats) == 0 {
-		fmt.Println("  none")
+		_, _ = fmt.Fprintln(stdoutWriter(), "  none")
 	} else {
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		w := tabwriter.NewWriter(stdoutWriter(), 0, 0, 2, ' ', 0)
 		_, _ = fmt.Fprintln(w, "kind\tfq_name\toutgoing_calls\tincoming_calls")
 		for _, row := range funcStats {
 			_, _ = fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", row["kind"], row["fq_name"], row["outgoing_calls"], row["incoming_calls"])
@@ -154,18 +153,18 @@ LIMIT %d`, module.ID, limit))
 		_ = w.Flush()
 	}
 
-	fmt.Println()
-	fmt.Printf("Top Outgoing Callees (limit %d)\n", limit)
+	_, _ = fmt.Fprintln(stdoutWriter())
+	_, _ = fmt.Fprintf(stdoutWriter(), "Top Outgoing Callees (limit %d)\n", limit)
 	if len(topCallees) == 0 {
-		fmt.Println("  none")
+		_, _ = fmt.Fprintln(stdoutWriter(), "  none")
 	} else {
 		_ = printTable(topCallees)
 	}
 
-	fmt.Println()
-	fmt.Printf("Top Incoming Callers (limit %d)\n", limit)
+	_, _ = fmt.Fprintln(stdoutWriter())
+	_, _ = fmt.Fprintf(stdoutWriter(), "Top Incoming Callers (limit %d)\n", limit)
 	if len(topCallers) == 0 {
-		fmt.Println("  none")
+		_, _ = fmt.Fprintln(stdoutWriter(), "  none")
 	} else {
 		_ = printTable(topCallers)
 	}
@@ -229,25 +228,25 @@ LIMIT %d`, limit))
 		})
 	}
 
-	fmt.Println("Module graph overview")
-	fmt.Println()
-	fmt.Printf("Top Modules by Imports (limit %d)\n", limit)
+	_, _ = fmt.Fprintln(stdoutWriter(), "Module graph overview")
+	_, _ = fmt.Fprintln(stdoutWriter())
+	_, _ = fmt.Fprintf(stdoutWriter(), "Top Modules by Imports (limit %d)\n", limit)
 	if len(importRows) == 0 {
-		fmt.Println("  none")
+		_, _ = fmt.Fprintln(stdoutWriter(), "  none")
 	} else {
 		_ = printTable(importRows)
 	}
-	fmt.Println()
-	fmt.Printf("Top Modules by Outgoing Calls (limit %d)\n", limit)
+	_, _ = fmt.Fprintln(stdoutWriter())
+	_, _ = fmt.Fprintf(stdoutWriter(), "Top Modules by Outgoing Calls (limit %d)\n", limit)
 	if len(outgoingRows) == 0 {
-		fmt.Println("  none")
+		_, _ = fmt.Fprintln(stdoutWriter(), "  none")
 	} else {
 		_ = printTable(outgoingRows)
 	}
-	fmt.Println()
-	fmt.Printf("Top Modules by Incoming Calls (limit %d)\n", limit)
+	_, _ = fmt.Fprintln(stdoutWriter())
+	_, _ = fmt.Fprintf(stdoutWriter(), "Top Modules by Incoming Calls (limit %d)\n", limit)
 	if len(incomingRows) == 0 {
-		fmt.Println("  none")
+		_, _ = fmt.Fprintln(stdoutWriter(), "  none")
 	} else {
 		_ = printTable(incomingRows)
 	}

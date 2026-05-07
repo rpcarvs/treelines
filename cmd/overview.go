@@ -486,12 +486,12 @@ func normalizePositiveLimit(limit int, fallback int) int {
 
 // printOverview emits the compact text overview used by humans and agents.
 func printOverview(data *overviewData) error {
-	fmt.Printf("Treelines overview (depth %d, limit %d)\n", data.Depth, data.Limit)
-	fmt.Println()
-	fmt.Println("Project")
-	fmt.Printf("  elements: %v\n", data.Project["total_elements"])
-	fmt.Printf("  edges:    %v\n", data.Project["total_edges"])
-	fmt.Printf("  files:    %v\n", data.Project["source_files"])
+	_, _ = fmt.Fprintf(stdoutWriter(), "Treelines overview (depth %d, limit %d)\n", data.Depth, data.Limit)
+	_, _ = fmt.Fprintln(stdoutWriter())
+	_, _ = fmt.Fprintln(stdoutWriter(), "Project")
+	_, _ = fmt.Fprintf(stdoutWriter(), "  elements: %v\n", data.Project["total_elements"])
+	_, _ = fmt.Fprintf(stdoutWriter(), "  edges:    %v\n", data.Project["total_edges"])
+	_, _ = fmt.Fprintf(stdoutWriter(), "  files:    %v\n", data.Project["source_files"])
 
 	printOverviewSection("Languages", data.ElementsByLanguage)
 	printOverviewSection("Element Kinds", data.ElementsByKind)
@@ -504,10 +504,10 @@ func printOverview(data *overviewData) error {
 		printOverviewSection("Export Surface", data.ExportSurface)
 		printOverviewSection("Top Outgoing Modules", data.OutgoingModules)
 		printOverviewSection("Top Incoming Modules", data.IncomingModules)
-		fmt.Println()
-		fmt.Println("Suggested Next Commands")
+		_, _ = fmt.Fprintln(stdoutWriter())
+		_, _ = fmt.Fprintln(stdoutWriter(), "Suggested Next Commands")
 		for _, command := range data.SuggestedCommands {
-			fmt.Printf("  %s\n", command)
+			_, _ = fmt.Fprintf(stdoutWriter(), "  %s\n", command)
 		}
 	}
 
@@ -520,10 +520,10 @@ func printOverview(data *overviewData) error {
 
 // printOverviewSection prints a titled table or a stable empty marker.
 func printOverviewSection(title string, rows []map[string]any) {
-	fmt.Println()
-	fmt.Println(title)
+	_, _ = fmt.Fprintln(stdoutWriter())
+	_, _ = fmt.Fprintln(stdoutWriter(), title)
 	if len(rows) == 0 {
-		fmt.Println("  none")
+		_, _ = fmt.Fprintln(stdoutWriter(), "  none")
 		return
 	}
 	_ = printTable(rows)

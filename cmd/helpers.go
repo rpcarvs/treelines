@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,6 +58,16 @@ func openStore(root string) (*graph.SQLiteStore, error) {
 	return store, nil
 }
 
+// stdoutWriter returns the Cobra-configured stdout stream.
+func stdoutWriter() io.Writer {
+	return rootCmd.OutOrStdout()
+}
+
+// stderrWriter returns the Cobra-configured stderr stream.
+func stderrWriter() io.Writer {
+	return rootCmd.ErrOrStderr()
+}
+
 // output formats and prints data based on the current flag settings.
 func output(data any) error {
 	if flagNoBody {
@@ -82,7 +93,7 @@ func stripBodies(data any) {
 
 // outputJSON marshals data to JSON and writes it to stdout.
 func outputJSON(data any) error {
-	enc := json.NewEncoder(os.Stdout)
+	enc := json.NewEncoder(stdoutWriter())
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
 }
@@ -107,26 +118,26 @@ func outputCompact(data any) error {
 
 // printElementDetail prints a single element with its full details.
 func printElementDetail(el *model.Element) error {
-	fmt.Printf("%s %s %s (%s)\n", el.Language, el.Kind, el.FQName, el.Visibility)
-	fmt.Printf("  %s:%d-%d (%d loc)\n", el.Path, el.StartLine, el.EndLine, el.LOC)
+	_, _ = fmt.Fprintf(stdoutWriter(), "%s %s %s (%s)\n", el.Language, el.Kind, el.FQName, el.Visibility)
+	_, _ = fmt.Fprintf(stdoutWriter(), "  %s:%d-%d (%d loc)\n", el.Path, el.StartLine, el.EndLine, el.LOC)
 	if el.Signature != "" {
-		fmt.Printf("  %s\n", el.Signature)
+		_, _ = fmt.Fprintf(stdoutWriter(), "  %s\n", el.Signature)
 	}
 	if el.Docstring != "" {
 		for _, line := range strings.Split(el.Docstring, "\n") {
-			fmt.Printf("  # %s\n", line)
+			_, _ = fmt.Fprintf(stdoutWriter(), "  # %s\n", line)
 		}
 	}
 	if el.Body != "" {
-		fmt.Println()
-		fmt.Println(el.Body)
+		_, _ = fmt.Fprintln(stdoutWriter())
+		_, _ = fmt.Fprintln(stdoutWriter(), el.Body)
 	}
 	return nil
 }
 
 // printElementList prints elements as a tab-aligned table.
 func printElementList(elements []model.Element) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(stdoutWriter(), 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintln(w, "KIND\tFQNAME\tPATH\tVIS\tLOC")
 	for _, el := range elements {
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s:%d\t%s\t%d\n",
@@ -145,7 +156,7 @@ func printTable(rows []map[string]any) error {
 		cols = append(cols, k)
 	}
 	sort.Strings(cols)
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	w := tabwriter.NewWriter(stdoutWriter(), 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintln(w, strings.Join(cols, "\t"))
 	for _, row := range rows {
 		vals := make([]string, len(cols))
@@ -157,16 +168,16 @@ func printTable(rows []map[string]any) error {
 	return w.Flush()
 }
 
-// logVerbose prints a message to stderr when verbose mode is enabled.
+// logVerbose prints a message to stdout when verbose mode is enabled.
 func logVerbose(format string, args ...any) {
 	if flagVerbose && !flagQuiet {
-		fmt.Fprintf(os.Stderr, format+"\n", args...)
+		_, _ = fmt.Fprintf(stdoutWriter(), format+"\n", args...)
 	}
 }
 
-// logInfo prints a message to stderr unless quiet mode is enabled.
+// logInfo prints a message to stdout unless quiet mode is enabled.
 func logInfo(format string, args ...any) {
 	if !flagQuiet {
-		fmt.Fprintf(os.Stderr, format+"\n", args...)
+		_, _ = fmt.Fprintf(stdoutWriter(), format+"\n", args...)
 	}
 }

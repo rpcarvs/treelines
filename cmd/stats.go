@@ -112,18 +112,18 @@ ORDER BY section, count DESC, label`)
 		return outputJSON(result)
 	}
 
-	fmt.Println("Elements by kind:")
+	_, _ = fmt.Fprintln(stdoutWriter(), "Elements by kind:")
 	for _, row := range byKind {
-		fmt.Printf("  %4v  %v\n", row["count"], row["kind"])
+		_, _ = fmt.Fprintf(stdoutWriter(), "  %4v  %v\n", row["count"], row["kind"])
 	}
-	fmt.Println("Elements by language:")
+	_, _ = fmt.Fprintln(stdoutWriter(), "Elements by language:")
 	for _, row := range byLang {
-		fmt.Printf("  %4v  %v\n", row["count"], row["language"])
+		_, _ = fmt.Fprintf(stdoutWriter(), "  %4v  %v\n", row["count"], row["language"])
 	}
-	fmt.Printf("Total elements: %d (language sum: %d, match: %t)\n", totalElements, byLangSum, byLangSum == totalElements)
-	fmt.Println("Edges by type:")
+	_, _ = fmt.Fprintf(stdoutWriter(), "Total elements: %d (language sum: %d, match: %t)\n", totalElements, byLangSum, byLangSum == totalElements)
+	_, _ = fmt.Fprintln(stdoutWriter(), "Edges by type:")
 	for _, row := range byEdge {
-		fmt.Printf("  %4v  %v\n", row["count"], row["type"])
+		_, _ = fmt.Fprintf(stdoutWriter(), "  %4v  %v\n", row["count"], row["type"])
 	}
 	return nil
 }
