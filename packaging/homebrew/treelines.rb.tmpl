@@ -5,23 +5,13 @@ class Treelines < Formula
   version "__VERSION__"
 
   on_macos do
-    if Hardware::CPU.arm?
-      url "https://github.com/rpcarvs/treelines/releases/download/v__VERSION__/treelines___VERSION___darwin_arm64.tar.gz"
-      sha256 "__DARWIN_ARM64_SHA256__"
-    else
-      url "https://github.com/rpcarvs/treelines/releases/download/v__VERSION__/treelines___VERSION___darwin_amd64.tar.gz"
-      sha256 "__DARWIN_AMD64_SHA256__"
-    end
+    url "https://github.com/rpcarvs/treelines/releases/download/v__VERSION__/treelines___VERSION___darwin_arm64.tar.gz"
+    sha256 "__DARWIN_ARM64_SHA256__"
   end
 
   on_linux do
-    if Hardware::CPU.arm?
-      url "https://github.com/rpcarvs/treelines/releases/download/v__VERSION__/treelines___VERSION___linux_arm64.tar.gz"
-      sha256 "__LINUX_ARM64_SHA256__"
-    else
-      url "https://github.com/rpcarvs/treelines/releases/download/v__VERSION__/treelines___VERSION___linux_amd64.tar.gz"
-      sha256 "__LINUX_AMD64_SHA256__"
-    end
+    url "https://github.com/rpcarvs/treelines/releases/download/v__VERSION__/treelines___VERSION___linux_amd64.tar.gz"
+    sha256 "__LINUX_AMD64_SHA256__"
   end
 
   def install

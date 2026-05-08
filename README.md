@@ -33,6 +33,12 @@ brew install treelines
 treelines --version
 ```
 
+Current packaged targets:
+- macOS arm64
+- Linux amd64
+
+Homebrew formulas are rendered from native cgo release builds for those targets.
+
 Install with Go:
 
 ```bash

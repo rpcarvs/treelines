@@ -63,11 +63,6 @@ func stdoutWriter() io.Writer {
 	return rootCmd.OutOrStdout()
 }
 
-// stderrWriter returns the Cobra-configured stderr stream.
-func stderrWriter() io.Writer {
-	return rootCmd.ErrOrStderr()
-}
-
 // output formats and prints data based on the current flag settings.
 func output(data any) error {
 	if flagNoBody {

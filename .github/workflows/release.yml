@@ -9,8 +9,8 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -25,14 +25,89 @@ jobs:
       - name: Run tests
         run: go test ./...
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+  build-macos-arm64:
+    needs: test
+    runs-on: macos-14
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          distribution: goreleaser
-          version: "~> v2"
-          args: release --clean
+          go-version-file: go.mod
+
+      - name: Build archive
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CGO_ENABLED: "1"
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_VERSION#v}"
+          archive="treelines_${version}_darwin_arm64.tar.gz"
+          mkdir -p dist
+          go build -trimpath -ldflags "-s -w -X main.version=${version}" -o dist/treelines ./main.go
+          tar -C dist -czf "dist/${archive}" treelines
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: treelines-darwin-arm64
+          path: dist/treelines_*_darwin_arm64.tar.gz
+          if-no-files-found: error
+
+  build-linux-amd64:
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build archive
+        env:
+          CGO_ENABLED: "1"
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_VERSION#v}"
+          archive="treelines_${version}_linux_amd64.tar.gz"
+          mkdir -p dist
+          go build -trimpath -ldflags "-s -w -X main.version=${version}" -o dist/treelines ./main.go
+          tar -C dist -czf "dist/${archive}" treelines
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: treelines-linux-amd64
+          path: dist/treelines_*_linux_amd64.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs:
+      - build-macos-arm64
+      - build-linux-amd64
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Download release archives
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Flatten artifact directories
+        run: |
+          find dist -mindepth 2 -type f -exec mv {} dist/ \;
+          find dist -mindepth 1 -type d -empty -delete
+          ls -la dist
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum treelines_*.tar.gz > checksums.txt
 
       - name: Render Homebrew formula
         env:
@@ -44,6 +119,38 @@ jobs:
             "dist/checksums.txt" \
             "packaging/homebrew/treelines.rb.tmpl" \
             "dist/treelines.rb"
+
+      - name: Publish GitHub release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" dist/treelines_*.tar.gz dist/checksums.txt --clobber
+          else
+            gh release create "${RELEASE_TAG}" \
+              dist/treelines_*.tar.gz \
+              dist/checksums.txt \
+              --title "${RELEASE_TAG}" \
+              --generate-notes
+          fi
+
+      - name: Upload formula artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: treelines-homebrew-formula
+          path: dist/treelines.rb
+          if-no-files-found: error
+
+  update-homebrew:
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download formula artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: treelines-homebrew-formula
+          path: dist
 
       - name: Update Homebrew tap
         env:

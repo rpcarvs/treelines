@@ -3,34 +3,28 @@
 set -euo pipefail
 
 # render_formula writes a concrete Homebrew formula using the release version
-# and the GoReleaser checksums file for the four supported platform archives.
+# and the checksums file for the supported native release archives.
 render_formula() {
   local version="$1"
   local checksums_file="$2"
   local template_file="$3"
   local output_file="$4"
 
-  local darwin_amd64_sha
   local darwin_arm64_sha
   local linux_amd64_sha
-  local linux_arm64_sha
 
-  darwin_amd64_sha="$(checksum_for "$checksums_file" "treelines_${version}_darwin_amd64.tar.gz")"
   darwin_arm64_sha="$(checksum_for "$checksums_file" "treelines_${version}_darwin_arm64.tar.gz")"
   linux_amd64_sha="$(checksum_for "$checksums_file" "treelines_${version}_linux_amd64.tar.gz")"
-  linux_arm64_sha="$(checksum_for "$checksums_file" "treelines_${version}_linux_arm64.tar.gz")"
 
   sed \
     -e "s/__VERSION__/${version}/g" \
-    -e "s/__DARWIN_AMD64_SHA256__/${darwin_amd64_sha}/g" \
     -e "s/__DARWIN_ARM64_SHA256__/${darwin_arm64_sha}/g" \
     -e "s/__LINUX_AMD64_SHA256__/${linux_amd64_sha}/g" \
-    -e "s/__LINUX_ARM64_SHA256__/${linux_arm64_sha}/g" \
     "$template_file" >"$output_file"
 }
 
 # checksum_for returns the checksum for one release archive and fails if the
-# archive is not present in the GoReleaser checksums file.
+# archive is not present in the checksums file.
 checksum_for() {
   local checksums_file="$1"
   local archive_name="$2"
