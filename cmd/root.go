@@ -33,9 +33,14 @@ Use exports for language-aware module export surface.
 Use onboard or recap for agent workflow reminders.`,
 }
 
-// Execute runs the root cobra command through FANG and exits on error.
-func Execute() {
-	if err := fang.Execute(context.Background(), rootCmd); err != nil {
+// Execute runs the root cobra command through Fang and exits on error.
+func Execute(version string) {
+	options := []fang.Option{fang.WithoutManpage()}
+	if version != "" {
+		options = append(options, fang.WithVersion(version))
+	}
+
+	if err := fang.Execute(context.Background(), rootCmd, options...); err != nil {
 		os.Exit(1)
 	}
 }

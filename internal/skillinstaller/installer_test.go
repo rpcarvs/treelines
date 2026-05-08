@@ -118,7 +118,7 @@ func TestInstallClaudeSkillCreatesOnlySkillFile(t *testing.T) {
 	}
 }
 
-func TestInstallCodexProviderGlobalCreatesSkillContextHooksAndConfig(t *testing.T) {
+func TestInstallCodexProviderGlobalCreatesSkillContextAndHooks(t *testing.T) {
 	tmp := t.TempDir()
 	codexHome := filepath.Join(tmp, "codex-home")
 	t.Setenv("CODEX_HOME", codexHome)
@@ -132,11 +132,9 @@ func TestInstallCodexProviderGlobalCreatesSkillContextHooksAndConfig(t *testing.
 	assertPathExists(t, filepath.Join(codexHome, "skills", skillDirName, "SKILL.md"))
 	assertPathExists(t, filepath.Join(codexHome, "AGENTS.md"))
 	assertPathExists(t, filepath.Join(codexHome, "hooks.json"))
-	assertPathExists(t, filepath.Join(codexHome, "config.toml"))
 	assertInstalledSharedSkill(t, filepath.Join(result.SkillPath, "SKILL.md"))
 	assertFileContains(t, result.ContextPath, contextBlockBegin)
 	assertFileContains(t, result.HookPath, sessionStartCommand)
-	assertFileContains(t, result.CodexConfigPath, "[features]\ncodex_hooks = true")
 	assertJSONFile(t, result.HookPath)
 }
 
@@ -156,9 +154,6 @@ func TestInstallClaudeProviderGlobalCreatesSkillContextAndHooks(t *testing.T) {
 	assertFileContains(t, result.ContextPath, contextBlockBegin)
 	assertFileContains(t, result.HookPath, sessionStartCommand)
 	assertJSONFile(t, result.HookPath)
-	if result.CodexConfigPath != "" {
-		t.Fatalf("Claude install should not write Codex config: %+v", result)
-	}
 }
 
 func TestInstallCodexProviderLocalCreatesRepoAssets(t *testing.T) {
@@ -180,10 +175,8 @@ func TestInstallCodexProviderLocalCreatesRepoAssets(t *testing.T) {
 	}
 	assertPathExists(t, filepath.Join(root, ".codex", "skills", skillDirName, "SKILL.md"))
 	assertPathExists(t, filepath.Join(root, ".codex", "hooks.json"))
-	assertPathExists(t, filepath.Join(root, ".codex", "config.toml"))
 	assertFileContains(t, result.ContextPath, contextBlockBegin)
 	assertFileContains(t, result.HookPath, sessionStartCommand)
-	assertFileContains(t, result.CodexConfigPath, "codex_hooks = true")
 }
 
 func TestInstallClaudeProviderLocalUsesAgentsAndPointer(t *testing.T) {

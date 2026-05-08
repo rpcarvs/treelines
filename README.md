@@ -25,7 +25,15 @@ It parses source files with Tree-sitter, stores symbols and relationships in SQL
 
 ## Quick Start
 
-Install the CLI:
+Install with Homebrew:
+
+```bash
+brew tap rpcarvs/treelines
+brew install treelines
+treelines --version
+```
+
+Install with Go:
 
 ```bash
 go install github.com/rpcarvs/treelines@latest
@@ -99,7 +107,6 @@ Each provider install:
 - Installs the shared `treelines-codebase-exploration` skill.
 - Adds or updates the managed Treelines context block.
 - Installs a `SessionStart` hook that runs `treelines init && treelines onboard` inside Git repositories.
-- For Codex, enables `codex_hooks` in `config.toml`.
 - Prints all installed or updated paths.
 
 Use `--local` to install into the current Git repository instead of the global agent config:
@@ -120,7 +127,6 @@ Global targets:
 - Codex skill: `$CODEX_HOME/skills/treelines-codebase-exploration` or `~/.codex/skills/treelines-codebase-exploration`
 - Codex context: `$CODEX_HOME/AGENTS.md` or `~/.codex/AGENTS.md`
 - Codex hooks: `$CODEX_HOME/hooks.json` or `~/.codex/hooks.json`
-- Codex config: `$CODEX_HOME/config.toml` or `~/.codex/config.toml`
 - Claude skill: `~/.claude/skills/treelines-codebase-exploration`
 - Claude context: `~/.claude/CLAUDE.md`
 - Claude hooks: `~/.claude/settings.json`
