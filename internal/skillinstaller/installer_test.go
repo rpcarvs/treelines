@@ -202,7 +202,8 @@ func TestInstallClaudeProviderLocalUsesAgentsAndPointer(t *testing.T) {
 	assertPathExists(t, filepath.Join(root, ".claude", "settings.json"))
 	assertFileContains(t, result.ContextPath, contextBlockBegin)
 	assertFileContains(t, result.HookPath, sessionStartCommand)
-	assertFileEquals(t, result.ClaudePointerPath, claudeLocalPointer)
+	assertFileContains(t, result.ClaudePointerPath, pointerBlockBegin)
+	assertFileContains(t, result.ClaudePointerPath, claudeLocalPointerBody)
 }
 
 func TestInstallLocalCodexAndClaudeShareOneContextBlock(t *testing.T) {
@@ -221,6 +222,95 @@ func TestInstallLocalCodexAndClaudeShareOneContextBlock(t *testing.T) {
 	if count := strings.Count(content, contextBlockBegin); count != 1 {
 		t.Fatalf("expected one managed context block, got %d in:\n%s", count, content)
 	}
+}
+
+func TestInstallClaudeProviderLocalPreservesExistingClaudeFile(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+
+	existing := "# Team Notes\n\nKeep this file.\n"
+	claudePath := filepath.Join(root, "CLAUDE.md")
+	if err := os.WriteFile(claudePath, []byte(existing), 0o644); err != nil {
+		t.Fatalf("seed CLAUDE.md: %v", err)
+	}
+
+	result, err := InstallProvider(InstallOptions{
+		Provider:  ProviderClaude,
+		Local:     true,
+		LocalRoot: root,
+	})
+	if err != nil {
+		t.Fatalf("install claude locally: %v", err)
+	}
+
+	if result.ClaudePointerAction != "appended" {
+		t.Fatalf("expected appended pointer action, got %q", result.ClaudePointerAction)
+	}
+	assertFileContains(t, result.ClaudePointerPath, "# Team Notes")
+	assertFileContains(t, result.ClaudePointerPath, "Keep this file.")
+	assertFileContains(t, result.ClaudePointerPath, pointerBlockBegin)
+	assertFileContains(t, result.ClaudePointerPath, claudeLocalPointerBody)
+}
+
+func TestInstallClaudeProviderLocalIsIdempotent(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+
+	first, err := InstallProvider(InstallOptions{
+		Provider:  ProviderClaude,
+		Local:     true,
+		LocalRoot: root,
+	})
+	if err != nil {
+		t.Fatalf("first install claude locally: %v", err)
+	}
+	second, err := InstallProvider(InstallOptions{
+		Provider:  ProviderClaude,
+		Local:     true,
+		LocalRoot: root,
+	})
+	if err != nil {
+		t.Fatalf("second install claude locally: %v", err)
+	}
+
+	if second.ClaudePointerAction != "unchanged" {
+		t.Fatalf("expected unchanged pointer action, got %q", second.ClaudePointerAction)
+	}
+
+	content := readFile(t, first.ClaudePointerPath)
+	if count := strings.Count(content, pointerBlockBegin); count != 1 {
+		t.Fatalf("expected one pointer block, got %d in:\n%s", count, content)
+	}
+}
+
+func TestInstallClaudeProviderLocalMigratesLegacyPointerOnlyFile(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("HOME", t.TempDir())
+
+	claudePath := filepath.Join(root, "CLAUDE.md")
+	if err := os.WriteFile(claudePath, []byte(claudeLocalPointer), 0o644); err != nil {
+		t.Fatalf("seed legacy CLAUDE.md: %v", err)
+	}
+
+	result, err := InstallProvider(InstallOptions{
+		Provider:  ProviderClaude,
+		Local:     true,
+		LocalRoot: root,
+	})
+	if err != nil {
+		t.Fatalf("install claude locally: %v", err)
+	}
+
+	if result.ClaudePointerAction != "updated" {
+		t.Fatalf("expected updated pointer action, got %q", result.ClaudePointerAction)
+	}
+
+	content := readFile(t, result.ClaudePointerPath)
+	if count := strings.Count(content, claudeLocalPointerBody); count != 1 {
+		t.Fatalf("expected one pointer line, got %d in:\n%s", count, content)
+	}
+	assertFileContains(t, result.ClaudePointerPath, pointerBlockBegin)
+	assertFileContains(t, result.ClaudePointerPath, pointerBlockEnd)
 }
 
 func TestInstallHookConfigAtPathMergesAndIsIdempotent(t *testing.T) {
@@ -290,14 +380,6 @@ func assertFileContains(t *testing.T, path string, substring string) {
 	content := readFile(t, path)
 	if !strings.Contains(content, substring) {
 		t.Fatalf("expected %s to contain %q, got:\n%s", path, substring, content)
-	}
-}
-
-func assertFileEquals(t *testing.T, path string, expected string) {
-	t.Helper()
-	content := readFile(t, path)
-	if content != expected {
-		t.Fatalf("expected %s to equal %q, got %q", path, expected, content)
 	}
 }
 

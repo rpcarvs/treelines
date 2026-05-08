@@ -14,11 +14,14 @@ const (
 	contextBlockEnd   = "<!-- TREELINES-CODEBASE-EXPLORATION:END -->"
 	legacyBlockBegin  = "<!-- LINES-CODEBASE-EXPLORATION:BEGIN -->"
 	legacyBlockEnd    = "<!-- LINES-CODEBASE-EXPLORATION:END -->"
+	pointerBlockBegin = "<!-- TREELINES-CLAUDE-POINTER:BEGIN -->"
+	pointerBlockEnd   = "<!-- TREELINES-CLAUDE-POINTER:END -->"
 )
 
 var (
 	managedContextBlockPattern = regexp.MustCompile(`(?s)` + regexp.QuoteMeta(contextBlockBegin) + `.*?` + regexp.QuoteMeta(contextBlockEnd))
 	legacyManagedBlockPattern  = regexp.MustCompile(`(?s)` + regexp.QuoteMeta(legacyBlockBegin) + `.*?` + regexp.QuoteMeta(legacyBlockEnd))
+	managedPointerBlockPattern = regexp.MustCompile(`(?s)` + regexp.QuoteMeta(pointerBlockBegin) + `.*?` + regexp.QuoteMeta(pointerBlockEnd))
 	legacyHeaderPattern        = regexp.MustCompile(`(?m)^# MANDATORY codebase exploration.*$`)
 	topHeadingPattern          = regexp.MustCompile(`(?m)^# `)
 )
@@ -32,6 +35,7 @@ Red flag: If you're about to Explore or use Read/Glob/Grep to understand the ref
 Use full file reads if necessary.`
 
 const claudeLocalPointer = "See [AGENTS.md](./AGENTS.md)\n"
+const claudeLocalPointerBody = "See [AGENTS.md](./AGENTS.md)"
 
 // CodexContextPath resolves the global Codex AGENTS.md path.
 func CodexContextPath() (string, error) {
@@ -100,7 +104,42 @@ func InstallContextAtPath(path string) (string, error) {
 
 // InstallClaudePointerAtPath writes the local Claude pointer to AGENTS.md.
 func InstallClaudePointerAtPath(path string) (string, error) {
-	return writeFileIfChanged(path, []byte(claudeLocalPointer), 0o644)
+	existing, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", fmt.Errorf("read Claude pointer file %s: %w", path, err)
+	}
+
+	updated, action := upsertClaudePointerBlock(string(existing))
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", fmt.Errorf("create Claude pointer directory %s: %w", filepath.Dir(path), err)
+	}
+	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+		return "", fmt.Errorf("write Claude pointer file %s: %w", path, err)
+	}
+	return action, nil
+}
+
+func upsertClaudePointerBlock(content string) (string, string) {
+	managedBlock := pointerBlockBegin + "\n" + claudeLocalPointerBody + "\n" + pointerBlockEnd
+
+	if managedPointerBlockPattern.MatchString(content) {
+		replaced := strings.TrimSpace(managedPointerBlockPattern.ReplaceAllString(content, managedBlock)) + "\n"
+		if replaced == content {
+			return replaced, "unchanged"
+		}
+		return replaced, "updated"
+	}
+
+	legacy := strings.TrimSpace(content)
+	if legacy == strings.TrimSpace(claudeLocalPointer) {
+		return managedBlock + "\n", "updated"
+	}
+
+	trimmed := strings.TrimRight(content, "\n\t ")
+	if trimmed == "" {
+		return managedBlock + "\n", "appended"
+	}
+	return trimmed + "\n\n" + managedBlock + "\n", "appended"
 }
 
 // upsertContextBlock replaces managed/legacy policy blocks and appends the latest block.

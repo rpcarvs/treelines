@@ -4,7 +4,6 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -263,25 +262,4 @@ func ensureTarget(target string, force bool) error {
 		return fmt.Errorf("create skill directory %s: %w", target, err)
 	}
 	return nil
-}
-
-// writeFileIfChanged writes content and reports whether the file changed.
-func writeFileIfChanged(path string, content []byte, mode fs.FileMode) (string, error) {
-	existing, err := os.ReadFile(path)
-	if err == nil && string(existing) == string(content) {
-		return "unchanged", nil
-	}
-	if err != nil && !os.IsNotExist(err) {
-		return "", fmt.Errorf("read %s: %w", path, err)
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return "", fmt.Errorf("create directory %s: %w", filepath.Dir(path), err)
-	}
-	if err := os.WriteFile(path, content, mode); err != nil {
-		return "", fmt.Errorf("write %s: %w", path, err)
-	}
-	if os.IsNotExist(err) {
-		return "created", nil
-	}
-	return "updated", nil
 }
